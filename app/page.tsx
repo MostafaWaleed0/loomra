@@ -1,7 +1,6 @@
 'use client';
-
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GoalView } from './components/goals/goal-view';
 import { HabitView } from './components/habits/habit-view';
 import { LeftSidebar } from './components/layout/left-sidebar';
@@ -16,17 +15,27 @@ import { useTasks } from './lib/hooks/use-Tasks';
 
 export default function GoalsTrackerApp() {
   const [activeView, setActiveView] = useState<'goals' | 'tasks' | 'habits'>('habits');
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const habitsCtx = useHabits();
   const tasksCtx = useTasks();
   const goalsCtx = useGoals(tasksCtx.tasks, tasksCtx.refreshTasks, habitsCtx.refreshHabits);
 
-  const stats = [habitsCtx.stats, tasksCtx.stats, goalsCtx.stats];
-  const isInitialLoading = habitsCtx.isLoading || tasksCtx.isLoading || goalsCtx.isLoading;
+  useEffect(() => {
+    if (!habitsCtx.isLoading && !tasksCtx.isLoading && !goalsCtx.isLoading) {
+      setIsInitializing(false);
+    }
+  }, [habitsCtx.isLoading, tasksCtx.isLoading, goalsCtx.isLoading]);
 
-  if (isInitialLoading) {
-    return <LoadingSpinner />;
+  if (isInitializing) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <Loader2 className="animate-spin text-primary size-20" />
+      </div>
+    );
   }
+
+  const stats = [habitsCtx.stats, tasksCtx.stats, goalsCtx.stats];
 
   return (
     <SidebarProvider
@@ -38,7 +47,6 @@ export default function GoalsTrackerApp() {
       }
     >
       <LeftSidebar variant="inset" activeView={activeView} setActiveView={setActiveView} stats={stats} />
-
       <SidebarInset>
         <SiteHeader activeView={activeView} />
         <UpdateNotification />
@@ -62,15 +70,5 @@ export default function GoalsTrackerApp() {
       </SidebarInset>
       {activeView === 'habits' && <SidebarRight {...habitsCtx} />}
     </SidebarProvider>
-  );
-}
-
-function LoadingSpinner() {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
-      <div className="flex flex-col items-center justify-center gap-3">
-        <Loader2 className="animate-spin text-primary size-20" aria-label="Loading" />
-      </div>
-    </div>
   );
 }
