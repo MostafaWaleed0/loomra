@@ -31,21 +31,24 @@ env:
   ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
 jobs:
+  # ----------------------------
+  # 1️⃣ Lint + Type Check
+  # ----------------------------
   lint:
     name: Lint and Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
       - run: npm ci
-
       - run: npx tsc --noEmit || true
 
+  # ----------------------------
+  # 2️⃣ Build Windows Installer
+  # ----------------------------
   build-windows:
     name: Build Windows
     runs-on: windows-latest
@@ -113,13 +116,26 @@ jobs:
           ELECTRON_BUILDER_CACHE: ${{ env.ELECTRON_BUILDER_CACHE }}
           USE_HARD_LINKS: false
 
+      # ✅ Upload built installer and metadata
+      - name: Upload Windows Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
+
+  # ----------------------------
+  # 3️⃣ Create GitHub Release
+  # ----------------------------
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [build-windows]
     if: |
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.ref, 'refs/tags/')
+      startsWith(github.ref, 'refs/tags/v')
 
     permissions:
       contents: write
@@ -130,12 +146,8 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
+          name: windows-build
           path: artifacts
-
-      - name: List Downloaded Artifacts
-        run: |
-          echo "Downloaded artifacts:"
-          ls -R artifacts
 
       - name: Prepare Release Assets
         run: |
@@ -159,11 +171,18 @@ jobs:
       - name: Determine Release Type
         id: release_type
         run: |
+          TYPE="${{ github.event.inputs.release_type }}"
           VERSION="${{ steps.version.outputs.version }}"
 
-          if [ "${{ github.event.inputs.release_type }}" != "" ]; then
-            echo "draft=${{ github.event.inputs.release_type == 'draft' }}" >> $GITHUB_OUTPUT
-            echo "prerelease=${{ github.event.inputs.release_type == 'prerelease' }}" >> $GITHUB_OUTPUT
+          if [ "$TYPE" == "draft" ]; then
+            echo "draft=true" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          elif [ "$TYPE" == "prerelease" ]; then
+            echo "draft=false" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          elif [ "$TYPE" == "release" ]; then
+            echo "draft=false" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
           elif [[ "$VERSION" =~ -beta|-alpha|-rc ]]; then
             echo "draft=false" >> $GITHUB_OUTPUT
             echo "prerelease=true" >> $GITHUB_OUTPUT
@@ -176,7 +195,6 @@ jobs:
         id: release_notes
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-
           cat > release_notes.md << 'EOF'
           ## 🎉 Loomra ${{ steps.version.outputs.version }}
 
@@ -224,6 +242,9 @@ jobs:
           path: release_notes.md
           retention-days: 90
 
+  # ----------------------------
+  # 4️⃣ Notify Job
+  # ----------------------------
   notify:
     name: Notify
     runs-on: ubuntu-latest
