@@ -13,16 +13,14 @@ import type {
 
 export function useTasks(): UseTasksReturn {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ============================================================================
-  // DATA LOADING
-  // ============================================================================
-
+  // ==========================================================================
+  // DATA LOADING - Only on mount
+  // ==========================================================================
   const refreshTasks = useCallback(async (): Promise<void> => {
     if (!window.electronAPI?.tasks) return;
 
-    setIsLoading(true);
     try {
       const data = await window.electronAPI.tasks.getAllTasks();
       setTasks(data);
@@ -35,12 +33,11 @@ export function useTasks(): UseTasksReturn {
 
   useEffect(() => {
     refreshTasks();
-  }, [refreshTasks]);
+  }, []); // Empty deps - only load once
 
-  // ============================================================================
-  // CREATE TASK
-  // ============================================================================
-
+  // ==========================================================================
+  // CREATE - Optimistic update
+  // ==========================================================================
   const handleCreateTask = useCallback(
     async (title: string, goalId?: string | null, dueDate?: string): Promise<Task | undefined> => {
       if (!title?.trim()) return;
@@ -68,10 +65,9 @@ export function useTasks(): UseTasksReturn {
     []
   );
 
-  // ============================================================================
-  // UPDATE TASK
-  // ============================================================================
-
+  // ==========================================================================
+  // UPDATE - Optimistic updates
+  // ==========================================================================
   const handleEditTask = useCallback(
     async (taskId: string, updates: TaskUpdates): Promise<void> => {
       const task = tasks.find((t) => t.id === taskId);
@@ -83,11 +79,13 @@ export function useTasks(): UseTasksReturn {
         updatedAt: new Date().toISOString()
       };
 
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+
       try {
         await window.electronAPI.tasks.updateTask(updatedTask);
-        setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
       } catch (error) {
         console.error('Failed to edit task:', error);
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)));
       }
     },
     [tasks]
@@ -104,24 +102,34 @@ export function useTasks(): UseTasksReturn {
         updatedAt: new Date().toISOString()
       };
 
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+
       try {
         await window.electronAPI.tasks.updateTask(updatedTask);
-        setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
       } catch (error) {
         console.error('Failed to toggle task:', error);
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)));
       }
     },
     [tasks]
   );
 
-  const handleDeleteTask = useCallback(async (taskId: string): Promise<void> => {
-    try {
-      await window.electronAPI.tasks.deleteTask(taskId);
+  const handleDeleteTask = useCallback(
+    async (taskId: string): Promise<void> => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-    }
-  }, []);
+
+      try {
+        await window.electronAPI.tasks.deleteTask(taskId);
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+        setTasks((prev) => [...prev, task]);
+      }
+    },
+    [tasks]
+  );
 
   const handleUpdateTaskPriority = useCallback(
     async (taskId: string, priority: TaskPriority): Promise<void> => {
@@ -137,10 +145,9 @@ export function useTasks(): UseTasksReturn {
     [handleEditTask]
   );
 
-  // ============================================================================
+  // ==========================================================================
   // COMPUTED TASKS WITH STATS
-  // ============================================================================
-
+  // ==========================================================================
   const tasksWithStats = useMemo((): TaskWithStats[] => {
     return tasks.map((task) => {
       const now = new Date();
@@ -155,10 +162,9 @@ export function useTasks(): UseTasksReturn {
     });
   }, [tasks]);
 
-  // ============================================================================
+  // ==========================================================================
   // STATISTICS
-  // ============================================================================
-
+  // ==========================================================================
   const stats = useMemo((): TaskStats => {
     const completed = tasksWithStats.filter((t) => t.done).length;
     const overdue = tasksWithStats.filter((t) => t.isOverdue).length;
@@ -192,10 +198,9 @@ export function useTasks(): UseTasksReturn {
     };
   }, [tasksWithStats, tasks.length]);
 
-  // ============================================================================
-  // FILTERING
-  // ============================================================================
-
+  // ==========================================================================
+  // QUERIES
+  // ==========================================================================
   const getFilteredTasks = useCallback(
     (filters: TaskFilters = {}): TaskWithStats[] => {
       return tasksWithStats.filter((task) => {
@@ -250,10 +255,9 @@ export function useTasks(): UseTasksReturn {
     [tasksWithStats]
   );
 
-  // ============================================================================
+  // ==========================================================================
   // RETURN API
-  // ============================================================================
-
+  // ==========================================================================
   return {
     tasks: tasksWithStats,
     stats,
