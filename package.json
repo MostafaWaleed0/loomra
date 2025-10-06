@@ -1,6 +1,6 @@
 {
   "name": "loomra",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "main": "electron.js",
   "description": "Loomra - Goal Tracker and Habit Manager",
