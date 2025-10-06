@@ -60,6 +60,12 @@ class App {
   }
 
   setupAutoUpdater() {
+    // Skip auto-updater entirely in development
+    if (isDev) {
+      log.info('Auto-updater disabled in development mode');
+      return;
+    }
+
     // Configure auto-updater
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
@@ -68,12 +74,10 @@ class App {
 
     // Check for updates every 4 hours
     setInterval(() => {
-      if (!isDev) {
-        log.info('Running periodic update check');
-        autoUpdater.checkForUpdates().catch((err) => {
-          log.error('Periodic update check failed:', err);
-        });
-      }
+      log.info('Running periodic update check');
+      autoUpdater.checkForUpdates().catch((err) => {
+        log.error('Periodic update check failed:', err);
+      });
     }, 4 * 60 * 60 * 1000);
 
     // Update available
@@ -138,46 +142,65 @@ class App {
     });
 
     autoUpdater.on('error', (error) => {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+
+      // Check if it's a "no releases" error (404, 403, or specific messages)
+      const isNoReleasesError =
+        errorMessage.includes('404') ||
+        errorMessage.includes('No published versions') ||
+        errorMessage.includes('Cannot find') ||
+        error?.statusCode === 404 ||
+        error?.statusCode === 403;
+
+      if (isNoReleasesError) {
+        log.info('No releases found on GitHub - this is expected for new repositories');
+        // Don't show error dialog for "no releases" scenario
+        return;
+      }
+
+      // Log actual errors
       log.error('Update error:', error);
       this.sendStatusToWindow('update-error', error);
+
+      // Only show error dialog for actual errors
       const dialogOpts = {
         type: 'error',
         title: 'Update Error',
         message: 'An error occurred while updating',
-        detail: error ? error.toString() : 'Unknown error'
+        detail: errorMessage
       };
       dialog.showMessageBox(this.mainWindow, dialogOpts);
     });
 
     // IPC handlers for update
     ipcMain.handle('check-for-updates', async () => {
-      if (isDev) {
-        return { available: false, message: 'Updates not available in development' };
-      }
       try {
         const result = await autoUpdater.checkForUpdates();
         return { available: true, info: result };
       } catch (error) {
+        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        const isNoReleasesError =
+          errorMessage.includes('404') || errorMessage.includes('No published versions') || errorMessage.includes('Cannot find');
+
+        if (isNoReleasesError) {
+          log.info('Manual update check: No releases found');
+          return { available: false, noReleases: true };
+        }
+
         log.error('Manual update check failed:', error);
-        return { available: false, error: error.message };
+        return { available: false, error: errorMessage };
       }
     });
 
     ipcMain.handle('download-update', () => {
-      if (!isDev) {
-        autoUpdater.downloadUpdate();
-        return { success: true };
-      }
-      return { success: false, message: 'Not available in development' };
+      autoUpdater.downloadUpdate();
+      return { success: true };
     });
 
     ipcMain.handle('install-update', () => {
-      if (!isDev) {
-        this.isQuitting = true;
-        autoUpdater.quitAndInstall(false, true);
-        return { success: true };
-      }
-      return { success: false, message: 'Not available in development' };
+      this.isQuitting = true;
+      autoUpdater.quitAndInstall(false, true);
+      return { success: true };
     });
 
     ipcMain.handle('get-app-version', () => {
