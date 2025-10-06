@@ -40,6 +40,9 @@ class App {
       }
     });
 
+    // Setup auto-updater IPC handlers BEFORE app is ready
+    this.setupAutoUpdaterIpcHandlers();
+
     app.whenReady().then(() => this.onReady());
     app.on('window-all-closed', this.onWindowAllClosed.bind(this));
     app.on('activate', this.onActivate.bind(this));
@@ -57,6 +60,55 @@ class App {
     });
 
     this.setupAutoUpdater();
+  }
+
+  setupAutoUpdaterIpcHandlers() {
+    // Register IPC handlers BEFORE window creation
+    ipcMain.handle('check-for-updates', async () => {
+      if (isDev) {
+        return { available: false, isDev: true };
+      }
+
+      try {
+        const result = await autoUpdater.checkForUpdates();
+        return { available: true, info: result };
+      } catch (error) {
+        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        const isNoReleasesError =
+          errorMessage.includes('404') || errorMessage.includes('No published versions') || errorMessage.includes('Cannot find');
+
+        if (isNoReleasesError) {
+          log.info('Manual update check: No releases found');
+          return { available: false, noReleases: true };
+        }
+
+        log.error('Manual update check failed:', error);
+        return { available: false, error: errorMessage };
+      }
+    });
+
+    ipcMain.handle('download-update', () => {
+      if (isDev) {
+        return { success: false, error: 'Updates not available in dev mode' };
+      }
+      autoUpdater.downloadUpdate();
+      return { success: true };
+    });
+
+    ipcMain.handle('install-update', () => {
+      if (isDev) {
+        return { success: false, error: 'Updates not available in dev mode' };
+      }
+      this.isQuitting = true;
+      autoUpdater.quitAndInstall(false, true);
+      return { success: true };
+    });
+
+    ipcMain.handle('get-app-version', () => {
+      return app.getVersion();
+    });
+
+    log.info('Auto-updater IPC handlers registered');
   }
 
   setupAutoUpdater() {
@@ -171,41 +223,6 @@ class App {
       };
       dialog.showMessageBox(this.mainWindow, dialogOpts);
     });
-
-    // IPC handlers for update
-    ipcMain.handle('check-for-updates', async () => {
-      try {
-        const result = await autoUpdater.checkForUpdates();
-        return { available: true, info: result };
-      } catch (error) {
-        const errorMessage = error?.message || error?.toString() || 'Unknown error';
-        const isNoReleasesError =
-          errorMessage.includes('404') || errorMessage.includes('No published versions') || errorMessage.includes('Cannot find');
-
-        if (isNoReleasesError) {
-          log.info('Manual update check: No releases found');
-          return { available: false, noReleases: true };
-        }
-
-        log.error('Manual update check failed:', error);
-        return { available: false, error: errorMessage };
-      }
-    });
-
-    ipcMain.handle('download-update', () => {
-      autoUpdater.downloadUpdate();
-      return { success: true };
-    });
-
-    ipcMain.handle('install-update', () => {
-      this.isQuitting = true;
-      autoUpdater.quitAndInstall(false, true);
-      return { success: true };
-    });
-
-    ipcMain.handle('get-app-version', () => {
-      return app.getVersion();
-    });
   }
 
   sendStatusToWindow(status, data = null) {
@@ -229,11 +246,12 @@ class App {
       await this.databaseManager.initialize();
       log.info('Database initialized successfully');
 
-      // Create window
-      this.createMainWindow();
+      // Setup database IPC handlers BEFORE creating window
+      setupIpcHandlers(this.databaseManager);
+      log.info('Database IPC handlers registered');
 
-      // Setup IPC handlers AFTER database and window are ready
-      setupIpcHandlers(this.databaseManager, this.mainWindow);
+      // Create window AFTER all IPC handlers are registered
+      this.createMainWindow();
 
       this.createTray();
 
