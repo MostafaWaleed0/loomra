@@ -546,7 +546,11 @@
     "extraMetadata": {
       "main": "electron.js"
     },
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "MostafaWaleed0",
+      "repo": "loomra"
+    },
     "win": {
       "target": "nsis",
       "icon": "public/logo.ico",
