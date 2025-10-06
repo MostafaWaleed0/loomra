@@ -5,11 +5,10 @@ on:
     tags:
       - 'v*.*.*'
     branches:
-      - main
-      - develop
+      - '**'
   pull_request:
     branches:
-      - main
+      - '**'
   workflow_dispatch:
     inputs:
       release_type:
