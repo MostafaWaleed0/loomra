@@ -16,25 +16,20 @@ export function useGoals(
   refreshTasks?: (() => Promise<void>) | null,
   refreshHabits?: (() => Promise<void>) | null
 ): UseGoalsReturn {
-  // ==========================================================================
-  // STATE
-  // ==========================================================================
   const [goals, setGoals] = useState<Goal[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // ==========================================================================
-  // DATA LOADING & REFRESH
+  // DATA LOADING - Only on mount
   // ==========================================================================
   const refreshGoals = useCallback(async () => {
     if (!window.electronAPI?.goals) return;
-    setIsLoading(true);
+
     try {
-      const goalsData: Goal[] = await window.electronAPI.goals.getAllGoals();
+      const goalsData = await window.electronAPI.goals.getAllGoals();
       setGoals(goalsData || []);
-      setIsInitialized(true);
       setValidationErrors({});
     } catch (error) {
       console.error('Failed to load goals:', error);
@@ -45,14 +40,8 @@ export function useGoals(
   }, []);
 
   useEffect(() => {
-    void refreshGoals();
-  }, [refreshGoals]);
-
-  useEffect(() => {
-    if (isInitialized && tasks.length > 0) {
-      void refreshGoals();
-    }
-  }, [tasks.length, isInitialized, refreshGoals]);
+    refreshGoals();
+  }, []);
 
   // ==========================================================================
   // PROGRESS CALCULATION
@@ -67,56 +56,35 @@ export function useGoals(
   );
 
   // ==========================================================================
-  // VALIDATION HANDLING
+  // CRUD - Optimistic updates (no refresh)
   // ==========================================================================
-  const handleValidation = useCallback((validation: any) => {
-    if (!validation?.isValid) {
-      setValidationErrors(validation?.errorsByField || {});
-      return false;
+  const handleCreateGoal = useCallback(async (payload: Partial<Goal> = { title: 'New Goal' }) => {
+    if (!window.electronAPI?.goals) {
+      setValidationErrors({ general: 'Electron API not available' });
+      return null;
     }
-    if (validation?.hasWarnings) {
-      const warnings = (validation.errors || [])
-        .filter((e: any) => e.error.includes('Using default') || e.error.includes('truncated'))
-        .reduce((acc: Record<string, string>, { field, error }: any) => {
-          acc[field] = error;
-          return acc;
-        }, {});
-      setValidationErrors(warnings);
-    }
-    return true;
-  }, []);
 
-  // ==========================================================================
-  // CORE ACTIONS
-  // ==========================================================================
-  const handleCreateGoal = useCallback(
-    async (payload: Partial<Goal> = { title: 'New Goal' }) => {
-      if (!window.electronAPI?.goals) {
-        setValidationErrors({ general: 'Electron API not available' });
-        return null;
-      }
-      setIsLoading(true);
-      setValidationErrors({});
-      try {
-        const newGoal = GoalFactory.create({
-          ...payload,
-          title: payload.title || 'New Goal'
-        });
-        if (!newGoal) throw new Error('Failed to create goal');
-        const savedGoal: Goal = await window.electronAPI.goals.createGoal(newGoal);
-        await refreshGoals();
-        setSelectedGoal(savedGoal);
-        return savedGoal;
-      } catch (error) {
-        console.error('Error creating goal:', error);
-        setValidationErrors({ general: 'Failed to create goal' });
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [refreshGoals]
-  );
+    setValidationErrors({});
+
+    try {
+      const newGoal = GoalFactory.create({
+        ...payload,
+        title: payload.title || 'New Goal'
+      });
+
+      if (!newGoal) throw new Error('Failed to create goal');
+
+      const savedGoal = await window.electronAPI.goals.createGoal(newGoal);
+      setGoals((prev) => [savedGoal, ...prev]);
+      setSelectedGoal(savedGoal);
+
+      return savedGoal;
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      setValidationErrors({ general: 'Failed to create goal' });
+      return null;
+    }
+  }, []);
 
   const handleUpdateGoal = useCallback(
     async (goalId: string, updates: Partial<Goal>) => {
@@ -124,26 +92,33 @@ export function useGoals(
         setValidationErrors({ general: 'Invalid request' });
         return false;
       }
-      setIsLoading(true);
+
+      const existingGoal = goals.find((g) => g.id === goalId);
+      if (!existingGoal) return false;
+
       setValidationErrors({});
+
       try {
-        const existingGoal = goals.find((g) => g.id === goalId);
-        if (!existingGoal) throw new Error('Goal not found');
         const updatedGoal = GoalFactory.update(existingGoal, updates);
         if (!updatedGoal) throw new Error('Failed to update goal');
-        await window.electronAPI.goals.updateGoal(updatedGoal);
-        await refreshGoals();
+
+        // Optimistic update
+        setGoals((prev) => prev.map((g) => (g.id === goalId ? updatedGoal : g)));
         if (selectedGoal?.id === goalId) {
-          const updated = (await window.electronAPI.goals.getGoalById?.(goalId)) || goals.find((g) => g.id === goalId) || null;
-          setSelectedGoal(updated);
+          setSelectedGoal(updatedGoal);
         }
+
+        // Persist to backend
+        await window.electronAPI.goals.updateGoal(updatedGoal);
+
         return true;
       } catch (error) {
         console.error('Error updating goal:', error);
         setValidationErrors({ general: 'Failed to update goal' });
+
+        // Rollback on error
+        await refreshGoals();
         return false;
-      } finally {
-        setIsLoading(false);
       }
     },
     [goals, selectedGoal, refreshGoals]
@@ -152,15 +127,21 @@ export function useGoals(
   const handleDeleteGoal = useCallback(
     async (goalId: string, deleteStrategy: DeleteStrategy = 'unlink') => {
       if (!window.electronAPI?.goals || !goalId) return false;
+
       try {
-        const success: boolean = await window.electronAPI.goals.deleteGoal(goalId, deleteStrategy);
+        const success = await window.electronAPI.goals.deleteGoal(goalId, deleteStrategy);
+
         if (success) {
-          await refreshGoals();
-          if (refreshTasks) await refreshTasks();
-          if (refreshHabits) await refreshHabits();
+          setGoals((prev) => prev.filter((g) => g.id !== goalId));
           if (selectedGoal?.id === goalId) setSelectedGoal(null);
           setValidationErrors({});
+
+          if (deleteStrategy !== 'unlink') {
+            if (refreshTasks) await refreshTasks();
+            if (refreshHabits) await refreshHabits();
+          }
         }
+
         return success;
       } catch (error) {
         console.error('Error deleting goal:', error);
@@ -168,95 +149,69 @@ export function useGoals(
         return false;
       }
     },
-    [selectedGoal, refreshGoals, refreshTasks, refreshHabits]
+    [selectedGoal, refreshTasks, refreshHabits]
   );
 
   // ==========================================================================
-  // QUICK STATUS ACTIONS
+  // QUICK ACTIONS
   // ==========================================================================
-  const markAsCompleted = useCallback(
-    (goalId: string) => handleUpdateGoal(goalId, { status: 'completed' as any }),
-    [handleUpdateGoal]
-  );
-  const markAsActive = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'active' as any }), [handleUpdateGoal]);
-  const pauseGoal = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'paused' as any }), [handleUpdateGoal]);
+  const markAsCompleted = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'completed' }), [handleUpdateGoal]);
+
+  const markAsActive = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'active' }), [handleUpdateGoal]);
+
+  const pauseGoal = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'paused' }), [handleUpdateGoal]);
 
   // ==========================================================================
-  // COMPUTED GOALS WITH STATS
+  // COMPUTED VALUES
   // ==========================================================================
   const goalsWithStats: GoalWithStats[] = useMemo(() => {
-    try {
-      return goals.map((goal) => {
-        const goalTasks = tasks.filter((t) => t.goalId === goal.id);
-        const completedTasks = goalTasks.filter((t) => t.done).length;
-        const progress = GoalFactory.calculateProgress(completedTasks, goalTasks.length);
-        const isOverdue = GoalFactory.isOverdue(goal);
-        const daysUntilDeadline = GoalFactory.getDaysUntilDeadline(goal);
-        return {
-          ...goal,
-          progress: progress !== (goal as any).progress ? progress : (goal as any).progress,
-          taskCount: goalTasks.length,
-          completedTaskCount: completedTasks,
-          isCompleted: progress >= 100,
-          isOverdue,
-          daysUntilDeadline
-        } as GoalWithStats;
-      });
-    } catch (error) {
-      console.error('Error computing goal stats:', error);
-      return [];
-    }
+    return goals.map((goal) => {
+      const goalTasks = tasks.filter((t) => t.goalId === goal.id);
+      const completedTasks = goalTasks.filter((t) => t.done).length;
+      const progress = GoalFactory.calculateProgress(completedTasks, goalTasks.length);
+
+      return {
+        ...goal,
+        progress,
+        taskCount: goalTasks.length,
+        completedTaskCount: completedTasks,
+        isCompleted: progress >= 100,
+        isOverdue: GoalFactory.isOverdue(goal),
+        daysUntilDeadline: GoalFactory.getDaysUntilDeadline(goal)
+      } as GoalWithStats;
+    });
   }, [goals, tasks]);
 
-  // ==========================================================================
-  // STATISTICS
-  // ==========================================================================
   const stats: GoalStats = useMemo(() => {
-    try {
-      const totalGoals = goals.length;
-      const completedGoals = goalsWithStats.filter((g) => g.isCompleted).length;
-      const activeGoals = goalsWithStats.filter((g) => g.status === 'active' && !g.isCompleted).length;
-      const pausedGoals = goalsWithStats.filter((g) => g.status === 'paused').length;
-      const overdueGoals = goalsWithStats.filter((g) => g.isOverdue).length;
-      const avgProgress = totalGoals > 0 ? Math.round(goalsWithStats.reduce((sum, g) => sum + g.progress, 0) / totalGoals) : 0;
-      const totalTasks = goalsWithStats.reduce((sum, g) => sum + g.taskCount, 0);
-      const completedTasks = goalsWithStats.reduce((sum, g) => sum + g.completedTaskCount, 0);
-      const goalsWithDeadlines = goalsWithStats.filter((g) => g.deadline).length;
-      const upcomingDeadlines = goalsWithStats
-        .filter((g) => g.deadline && g.daysUntilDeadline !== null && g.daysUntilDeadline >= 0 && g.daysUntilDeadline <= 7)
-        .sort((a, b) => (a.daysUntilDeadline || 0) - (b.daysUntilDeadline || 0));
+    const totalGoals = goals.length;
+    const completedGoals = goalsWithStats.filter((g) => g.isCompleted).length;
+    const activeGoals = goalsWithStats.filter((g) => g.status === 'active' && !g.isCompleted).length;
+    const pausedGoals = goalsWithStats.filter((g) => g.status === 'paused').length;
+    const overdueGoals = goalsWithStats.filter((g) => g.isOverdue).length;
+    const avgProgress = totalGoals > 0 ? Math.round(goalsWithStats.reduce((sum, g) => sum + g.progress, 0) / totalGoals) : 0;
+    const totalTasks = goalsWithStats.reduce((sum, g) => sum + g.taskCount, 0);
+    const completedTasks = goalsWithStats.reduce((sum, g) => sum + g.completedTaskCount, 0);
+    const goalsWithDeadlines = goalsWithStats.filter((g) => g.deadline).length;
+    const upcomingDeadlines = goalsWithStats
+      .filter((g) => g.daysUntilDeadline !== null && g.daysUntilDeadline >= 0 && g.daysUntilDeadline <= 7)
+      .sort((a, b) => (a.daysUntilDeadline || 0) - (b.daysUntilDeadline || 0));
 
-      return {
-        totalGoals,
-        completedGoals,
-        activeGoals,
-        pausedGoals,
-        overdueGoals,
-        avgProgress,
-        totalTasks,
-        completedTasks,
-        goalsWithDeadlines,
-        upcomingDeadlines
-      } as GoalStats;
-    } catch (error) {
-      console.error('Error computing goal statistics:', error);
-      return {
-        totalGoals: 0,
-        completedGoals: 0,
-        activeGoals: 0,
-        pausedGoals: 0,
-        overdueGoals: 0,
-        avgProgress: 0,
-        totalTasks: 0,
-        completedTasks: 0,
-        goalsWithDeadlines: 0,
-        upcomingDeadlines: []
-      } as GoalStats;
-    }
-  }, [goals, goalsWithStats]);
+    return {
+      totalGoals,
+      completedGoals,
+      activeGoals,
+      pausedGoals,
+      overdueGoals,
+      avgProgress,
+      totalTasks,
+      completedTasks,
+      goalsWithDeadlines,
+      upcomingDeadlines
+    };
+  }, [goals.length, goalsWithStats]);
 
   // ==========================================================================
-  // FILTERING & SORTING
+  // QUERIES
   // ==========================================================================
   const getFilteredGoals = useCallback(
     (filters: GoalFilters = {}) => {
@@ -270,10 +225,9 @@ export function useGoals(
         if (filters.search) {
           const term = filters.search.toLowerCase();
           return (
-            (goal.title || '').toLowerCase().includes(term) ||
-            (goal.description || '').toLowerCase().includes(term) ||
-            (goal.category || '').toString().toLowerCase().includes(term) ||
-            ((goal as any).notes || '').toLowerCase().includes(term)
+            goal.title?.toLowerCase().includes(term) ||
+            goal.description?.toLowerCase().includes(term) ||
+            goal.category?.toLowerCase().includes(term)
           );
         }
         return true;
@@ -289,15 +243,14 @@ export function useGoals(
     [goalsWithStats]
   );
 
-  // ==========================================================================
-  // GROUPING QUERIES
-  // ==========================================================================
   const getGoalsByCategory = useCallback(() => GoalFactory.getGoalsByCategory(goalsWithStats), [goalsWithStats]);
+
   const getGoalsByStatus = useCallback(() => GoalFactory.getGoalsByStatus(goalsWithStats), [goalsWithStats]);
+
   const getGoalById = useCallback((goalId: string) => goalsWithStats.find((g) => g.id === goalId) || null, [goalsWithStats]);
 
   // ==========================================================================
-  // RETURN API
+  // RETURN
   // ==========================================================================
   return {
     goals: goalsWithStats,

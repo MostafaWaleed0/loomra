@@ -168,11 +168,11 @@ export function useHabits(): UseHabitsReturn {
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
   const [selectedDate, setSelectedDate] = useState<DateString>(DateUtils.getCurrentDateString());
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const habitsCacheRef = useRef<Map<string, Habit>>(new Map());
 
   // ============================================================================
-  // INITIAL DATA LOAD
+  // INITIAL DATA LOAD - Only on mount
   // ============================================================================
 
   const loadAllCompletions = useCallback(async (): Promise<HabitCompletion[]> => {
@@ -191,7 +191,6 @@ export function useHabits(): UseHabitsReturn {
 
   const loadInitialData = useCallback(async (): Promise<void> => {
     try {
-      setIsLoading(true);
       const [loadedHabits, allCompletions] = await Promise.all([window.electronAPI.habits.getAllHabits(), loadAllCompletions()]);
 
       setHabits(loadedHabits);
@@ -205,10 +204,10 @@ export function useHabits(): UseHabitsReturn {
 
   useEffect(() => {
     loadInitialData();
-  }, [loadInitialData]);
+  }, []);
 
   // ============================================================================
-  // CRUD OPERATIONS
+  // CRUD OPERATIONS - Optimistic updates
   // ============================================================================
 
   const handleSaveHabit = useCallback(
@@ -220,20 +219,18 @@ export function useHabits(): UseHabitsReturn {
         let savedHabit: Habit;
         if (existingHabit) {
           savedHabit = await window.electronAPI.habits.updateHabit(normalizedHabit);
+
+          setHabits((prev) => prev.map((h) => (h.id === existingHabit.id ? savedHabit : h)));
+          habitsCacheRef.current.set(savedHabit.id, savedHabit);
+
+          if (selectedHabit?.id === existingHabit.id) {
+            setSelectedHabit(savedHabit);
+          }
         } else {
           savedHabit = await window.electronAPI.habits.createHabit(normalizedHabit);
-        }
 
-        setHabits((prev) => {
-          const newHabits = existingHabit
-            ? prev.map((habit) => (habit.id === existingHabit.id ? savedHabit : habit))
-            : [...prev, savedHabit];
+          setHabits((prev) => [...prev, savedHabit]);
           habitsCacheRef.current.set(savedHabit.id, savedHabit);
-          return newHabits;
-        });
-
-        if (selectedHabit && existingHabit && selectedHabit.id === existingHabit.id) {
-          setSelectedHabit(savedHabit);
         }
 
         return savedHabit;
@@ -248,20 +245,31 @@ export function useHabits(): UseHabitsReturn {
   const handleDeleteHabit = useCallback(
     async (habitId: string): Promise<void> => {
       if (!habitId) return;
+
+      const habit = habits.find((h) => h.id === habitId);
+      const habitCompletions = completions.filter((c) => c.habitId === habitId);
+
+      setHabits((prev) => prev.filter((h) => h.id !== habitId));
+      setCompletions((prev) => prev.filter((c) => c.habitId !== habitId));
+      habitsCacheRef.current.delete(habitId);
+      if (selectedHabit?.id === habitId) {
+        setSelectedHabit(null);
+      }
+
       try {
         await window.electronAPI.habits.deleteHabit(habitId);
-        setHabits((prev) => prev.filter((habit) => habit.id !== habitId));
-        setCompletions((prev) => prev.filter((completion) => completion.habitId !== habitId));
-        habitsCacheRef.current.delete(habitId);
-        if (selectedHabit?.id === habitId) {
-          setSelectedHabit(null);
-        }
       } catch (error) {
         console.error('Failed to delete habit:', error);
+
+        if (habit) {
+          setHabits((prev) => [...prev, habit]);
+          setCompletions((prev) => [...prev, ...habitCompletions]);
+          habitsCacheRef.current.set(habitId, habit);
+        }
         throw error;
       }
     },
-    [selectedHabit]
+    [habits, completions, selectedHabit]
   );
 
   // ============================================================================
@@ -275,7 +283,7 @@ export function useHabits(): UseHabitsReturn {
   }, []);
 
   // ============================================================================
-  // COMPLETION OPERATIONS
+  // COMPLETION OPERATIONS - Optimistic updates
   // ============================================================================
 
   const updateHabitStats = useCallback(
@@ -291,8 +299,6 @@ export function useHabits(): UseHabitsReturn {
           updatedAt: new Date().toISOString()
         };
 
-        await window.electronAPI.habits.updateHabit(updatedHabit);
-
         setHabits((prev) =>
           prev.map((h) => {
             if (h.id === habitId) {
@@ -302,6 +308,8 @@ export function useHabits(): UseHabitsReturn {
             return h;
           })
         );
+
+        await window.electronAPI.habits.updateHabit(updatedHabit);
       } catch (error) {
         console.error('Failed to update habit stats:', error);
       }
@@ -329,7 +337,11 @@ export function useHabits(): UseHabitsReturn {
             targetAmount: habit.targetAmount,
             ...additionalData
           });
+
+          setCompletions((prev) => prev.map((r) => (r.id === existingRecord.id ? updatedRecord : r)));
+
           savedRecord = await window.electronAPI.habitCompletions.updateHabitCompletion(updatedRecord);
+
           setCompletions((prev) => prev.map((r) => (r.id === existingRecord.id ? savedRecord : r)));
         } else {
           const newRecord = HabitCompletionManager.createRecord(habitId, date, {
@@ -337,17 +349,23 @@ export function useHabits(): UseHabitsReturn {
             targetAmount: habit.targetAmount,
             ...additionalData
           });
+
+          setCompletions((prev) => [...prev, newRecord]);
+
           savedRecord = await window.electronAPI.habitCompletions.createHabitCompletion(newRecord);
-          setCompletions((prev) => [...prev, savedRecord]);
+
+          setCompletions((prev) => prev.map((r) => (r.habitId === habitId && r.completedAt === date ? savedRecord : r)));
         }
 
+        // Update stats in background
         setTimeout(() => updateHabitStats(habitId), 0);
       } catch (error) {
         console.error('Failed to set habit completion:', error);
+        await loadInitialData();
         throw error;
       }
     },
-    [habits, completions, updateHabitStats]
+    [habits, completions, updateHabitStats, loadInitialData]
   );
 
   const toggleHabitCompletion = useCallback(
@@ -469,7 +487,7 @@ export function useHabits(): UseHabitsReturn {
   );
 
   useEffect(() => {
-    if (selectedHabit && selectedHabit.id) {
+    if (selectedHabit?.id) {
       const updatedHabit = habits.find((h) => h.id === selectedHabit.id);
       if (updatedHabit && updatedHabit.updatedAt !== selectedHabit.updatedAt) {
         setSelectedHabit(updatedHabit);
