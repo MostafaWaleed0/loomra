@@ -2,7 +2,7 @@
 
 const { nativeTheme, ipcMain } = require('electron');
 
-function setupIpcHandlers(dbManager, mainWindow) {
+function setupIpcHandlers(dbManager) {
   ipcMain.handle('goal:create', async (event, goal) => {
     try {
       return await dbManager.createGoal(goal);
