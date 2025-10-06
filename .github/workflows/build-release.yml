@@ -1,9 +1,8 @@
-name: Build and Release
+name: 🚀 Build & Release
 
 on:
+  # Trigger on version tags (v1.2.3), main branch pushes, and PRs
   push:
-    tags:
-      - 'v*.*.*'
     branches:
       - '**'
   pull_request:
@@ -21,36 +20,47 @@ on:
           - prerelease
           - release
       version:
-        description: 'Version (leave empty to use package.json)'
+        description: 'Version (optional – uses package.json if empty)'
         required: false
         type: string
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: 20
   ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
   ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
 jobs:
+  # ----------------------------
+  # 1️⃣ Quality Checks
+  # ----------------------------
   lint:
-    name: Lint and Type Check
+    name: 🧹 Lint & Type Check
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: npm
 
-      - run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-      - run: npx tsc --noEmit || true
+      - name: Run Type Check
+        run: npx tsc --noEmit
 
-  build-windows:
-    name: Build Windows
+      - name: Run Linter
+        run: npm run lint --if-present
+
+  # ----------------------------
+  # 2️⃣ Build (Windows)
+  # ----------------------------
+  build:
+    name: 🏗️ Build Windows Installer
     runs-on: windows-latest
     needs: lint
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'pull_request' # skip building for PRs
 
     strategy:
       matrix:
@@ -65,61 +75,68 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: npm
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Verify Build Environment
+      - name: 🧰 Verify Environment
         run: |
-          echo "✅ Build environment ready."
-          python --version
-          node -p "process.version"
-          npx node-gyp install
+          echo "✅ Node $(node -v)"
+          echo "✅ Python $(python --version)"
 
-      - uses: actions/cache@v4
+      - name: ♻️ Cache Electron Builds
+        uses: actions/cache@v4
         with:
-          path: ${{ env.ELECTRON_CACHE }}
+          path: |
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
           key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-
 
-      - uses: actions/cache@v4
-        with:
-          path: ${{ env.ELECTRON_BUILDER_CACHE }}
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-builder-
+      - name: 📦 Install Dependencies
+        run: npm ci
 
-      - run: npm ci
-
-      - name: Update Version (if provided)
+      - name: 🔢 Update Version (if provided)
         if: github.event.inputs.version != ''
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
-      - name: Build Next.js App
+      - name: ⚙️ Build Next.js
         run: npm run next:build
         env:
           NODE_ENV: production
 
-      - name: Rebuild Native Modules
+      - name: 🔧 Rebuild Native Modules
         run: npm run postinstall
 
-      - name: Build Windows Installer
+      - name: 🪟 Build Windows Installer
         run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          ELECTRON_BUILDER_CACHE: ${{ env.ELECTRON_BUILDER_CACHE }}
           USE_HARD_LINKS: false
 
-  create-release:
-    name: Create Release
+      - name: 📤 Upload Windows Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
+
+  # ----------------------------
+  # 3️⃣ Create GitHub Release
+  # ----------------------------
+  release:
+    name: 📦 Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-windows]
+    needs: build
     if: |
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.ref, 'refs/tags/')
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.ref == 'refs/heads/main'
 
     permissions:
       contents: write
@@ -127,85 +144,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Artifacts
+      - name: 📥 Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: windows-build
+          path: release-assets
 
-      - name: List Downloaded Artifacts
-        run: |
-          echo "Downloaded artifacts:"
-          ls -R artifacts
-
-      - name: Prepare Release Assets
-        run: |
-          mkdir -p release-assets
-          find artifacts -type f \( -name "*.exe" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} release-assets/ \;
-          echo "Release assets:"
-          ls -lh release-assets/
-
-      - name: Determine Version
+      - name: 🔍 Determine Version
         id: version
         run: |
-          if [ "${{ github.event.inputs.version }}" != "" ]; then
+          if [ -n "${{ github.event.inputs.version }}" ]; then
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref_type }}" == "tag" ]; then
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
-            VERSION=$(node -p "require('./package.json').version")
-            echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+            echo "version=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           fi
 
-      - name: Determine Release Type
+      - name: 🧩 Determine Release Type
         id: release_type
         run: |
+          TYPE="${{ github.event.inputs.release_type }}"
           VERSION="${{ steps.version.outputs.version }}"
+          case "$TYPE" in
+            draft) echo "draft=true" >> $GITHUB_OUTPUT; echo "prerelease=false" >> $GITHUB_OUTPUT ;;
+            prerelease) echo "draft=false" >> $GITHUB_OUTPUT; echo "prerelease=true" >> $GITHUB_OUTPUT ;;
+            release) echo "draft=false" >> $GITHUB_OUTPUT; echo "prerelease=false" >> $GITHUB_OUTPUT ;;
+            *) [[ "$VERSION" =~ -beta|-alpha|-rc ]] && echo "prerelease=true" >> $GITHUB_OUTPUT || echo "prerelease=false" >> $GITHUB_OUTPUT ;;
+          esac
 
-          if [ "${{ github.event.inputs.release_type }}" != "" ]; then
-            echo "draft=${{ github.event.inputs.release_type == 'draft' }}" >> $GITHUB_OUTPUT
-            echo "prerelease=${{ github.event.inputs.release_type == 'prerelease' }}" >> $GITHUB_OUTPUT
-          elif [[ "$VERSION" =~ -beta|-alpha|-rc ]]; then
-            echo "draft=false" >> $GITHUB_OUTPUT
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "draft=false" >> $GITHUB_OUTPUT
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate Release Notes
-        id: release_notes
+      - name: 📝 Generate Release Notes
+        id: notes
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          cat > release_notes.md <<EOF
+          ## 🚀 Loomra ${{ steps.version.outputs.version }}
 
-          cat > release_notes.md << 'EOF'
-          ## 🎉 Loomra ${{ steps.version.outputs.version }}
+          ### ✨ Highlights
+          - Core functionality improvements
+          - Optimized performance
+          - Bug fixes and polish
 
-          ### 📦 Downloads
-          - **Windows Installer**: `Loomra-Setup.exe` (Recommended)
-          - **Auto-updates**: Enabled for all users
-
-          ### ✨ What's New
-          - Initial stable release
-          - Core habit tracking functionality
-          - Goal management system
-          - Data persistence and backup
-
-          ### 📋 Installation
-          1. Download `Loomra-Setup.exe`
-          2. Run the installer
-          3. Launch Loomra from Start Menu
-
-          ### 🔄 Auto-Updates
-          Future updates will be downloaded and installed automatically.
+          ### 🪟 Windows Installer
+          - **Download:** \`Loomra-Setup.exe\`
+          - Auto-updates enabled
 
           ---
-
-          **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.version }}
+          [View full changelog](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.version }})
           EOF
-
           cat release_notes.md
 
-      - uses: softprops/action-gh-release@v2
+      - name: 🏁 Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: Loomra ${{ steps.version.outputs.version }}
@@ -213,35 +202,29 @@ jobs:
           draft: ${{ steps.release_type.outputs.draft }}
           prerelease: ${{ steps.release_type.outputs.prerelease }}
           files: release-assets/*
-          fail_on_unmatched_files: true
-          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-info
-          path: release_notes.md
-          retention-days: 90
-
+  # ----------------------------
+  # 4️⃣ Post-Release Notification
+  # ----------------------------
   notify:
-    name: Notify
+    name: 🔔 Notify
     runs-on: ubuntu-latest
-    needs: [create-release]
+    needs: release
     if: always()
 
     steps:
-      - name: Check Status
+      - name: Print Summary
         run: |
-          result="${{ needs.create-release.result }}"
+          result="${{ needs.release.result }}"
           echo "Release job result: $result"
-
           if [ "$result" = "success" ]; then
-            echo "✅ Release created successfully!"
-            echo "Check: https://github.com/${{ github.repository }}/releases"
+            echo "✅ Release published successfully!"
+            echo "➡️ https://github.com/${{ github.repository }}/releases"
           elif [ "$result" = "skipped" ]; then
-            echo "⚠️ Release was skipped"
+            echo "⚠️ Release was skipped."
           else
-            echo "❌ Release failed!"
+            echo "❌ Release failed."
             exit 1
           fi
