@@ -5,11 +5,10 @@ on:
     tags:
       - 'v*.*.*'
     branches:
-      - main
-      - develop
+      - '**'
   pull_request:
     branches:
-      - main
+      - '**'
   workflow_dispatch:
     inputs:
       release_type:
@@ -61,6 +60,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -106,35 +106,12 @@ jobs:
       - name: Rebuild Native Modules
         run: npm run postinstall
 
-      - name: Build Windows Installer (No Publish)
+      - name: Build Windows Installer
         run: npm run build:win
         env:
-          # DO NOT set GH_TOKEN - prevents electron-builder from publishing
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           ELECTRON_BUILDER_CACHE: ${{ env.ELECTRON_BUILDER_CACHE }}
           USE_HARD_LINKS: false
-
-      - name: Get Package Info
-        id: package
-        shell: pwsh
-        run: |
-          $pkg = Get-Content -Raw -Path package.json | ConvertFrom-Json
-          echo "version=$($pkg.version)" >> $env:GITHUB_OUTPUT
-          echo "name=$($pkg.name)" >> $env:GITHUB_OUTPUT
-
-      - name: List Build Outputs
-        run: |
-          echo "Build outputs:"
-          dir dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-${{ matrix.arch }}-installer
-          path: |
-            dist/*.exe
-            dist/latest.yml
-            dist/*.blockmap
-          retention-days: 30
-          if-no-files-found: error
 
   create-release:
     name: Create Release
