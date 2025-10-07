@@ -2,7 +2,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ColorUtils, DateUtils, FormatUtils } from '@/lib/core';
-import type { GoalWithStats, Habit, HabitFormData, UseHabitsReturn } from '@/lib/types';
+import type { GoalWithStats, Habit, UseHabitsReturn } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { Calendar, CalendarDays, Target } from 'lucide-react';
 import { useState } from 'react';
 import { HabitDrawerView } from './habit-drawer/habit-drawer-view';
@@ -109,12 +110,12 @@ export function HabitView({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className={`${ColorUtils.getCompletionColor(stats.percentage)} font-medium`}>
+                <Badge variant="outline" className={ColorUtils.getCompletionColor(stats.percentage)}>
                   {FormatUtils.formatProgress(stats.completed, stats.dueToday, { showPercentage: false })}
                 </Badge>
                 <div className="flex items-center gap-2">
                   <Target className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <span className={`text-lg font-bold ${ColorUtils.getCompletionColor(stats.percentage)}`}>
+                  <span className={cn(ColorUtils.getCompletionColor(stats.percentage), 'text-lg font-bold')}>
                     {FormatUtils.formatPercentage(stats.completed, stats.dueToday)}
                   </span>
                 </div>

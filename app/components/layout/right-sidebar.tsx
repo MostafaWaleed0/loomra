@@ -5,27 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarSeparator } from '@/components/ui/sidebar';
-import { DateUtils, FormatUtils } from '@/lib/core';
+import { ColorUtils, DateUtils, FormatUtils } from '@/lib/core';
 import { SYSTEM_CONSTANTS, UI_CONFIG } from '@/lib/core/constants';
 import { HabitFrequencyManager } from '@/lib/habit';
 import { useHabitCalendar } from '@/lib/hooks/use-habit-calendar';
-import { cn } from '@/lib/utils';
+import { CompletionRecord, DateString, Habit, HabitCompletion, HabitStats, UseHabitsReturn } from '@/lib/types';
 import { AlertCircle, Brain, CalendarIcon, CheckCircle, Circle, Heart, Loader2Icon, Target, X, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CompletionControl } from '../form/completion-control';
 import { ValidatedSelect } from '../form/validated-select';
 import { ValidatedTextarea } from '../form/validated-textarea';
 import { HabitIcon } from '../habit-icon';
-import {
-  DateString,
-  Habit,
-  HabitCompletion,
-  HabitStats,
-  UseHabitsReturn,
-  HabitWithMetadata,
-  CompletionRecord,
-  DifficultyValue
-} from '@/lib/types';
 
 // ============================================================================
 // INTERFACES
@@ -251,7 +241,7 @@ const HabitView = ({
                       <Target className="size-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">Progress</span>
                     </div>
-                    <Badge variant="outline" className={cn('bg-' + (stats.percentage >= 100 ? 'green' : 'yellow') + '-500')}>
+                    <Badge variant="outline" className={ColorUtils.getCompletionColor(stats.percentage)}>
                       {FormatUtils.formatProgress(stats.completed, stats.dueToday, { showPercentage: false })}
                     </Badge>
                   </div>

@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { ColorUtils } from '@/lib/core';
 import type { GoalWithStats } from '@/lib/types';
 
 interface GoalMetadataGridProps {
@@ -14,13 +15,15 @@ export function GoalMetadataGrid({ goal }: GoalMetadataGridProps) {
       </div>
       <div>
         <div className="text-muted-foreground">Priority</div>
-        <Badge variant="outline" className="capitalize">
+        <Badge variant="outline" className={ColorUtils.getPriorityColor(goal.priority)}>
           {goal.priority}
         </Badge>
       </div>
       <div>
         <div className="text-muted-foreground">Status</div>
-        <Badge variant={goal.isCompleted ? 'default' : 'secondary'}>{goal.isCompleted ? 'Completed' : goal.status}</Badge>
+        <Badge variant="outline" className={ColorUtils.getStatusColor(goal.status)}>
+          {goal.isCompleted ? 'Completed' : goal.status}
+        </Badge>
       </div>
       {goal.deadline && (
         <div>

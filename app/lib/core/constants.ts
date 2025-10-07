@@ -265,9 +265,15 @@ export const UI_CONFIG = {
     ],
 
     PRIORITY: {
-      low: 'text-green-600 border-green-200 bg-green-50',
-      medium: 'text-orange-600 border-orange-200 bg-orange-50',
-      high: 'text-red-600 border-red-200 bg-red-50'
+      low: 'text-emerald-700 border-emerald-300 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950 dark:border-emerald-800',
+      medium: 'text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800',
+      high: 'text-rose-700 border-rose-300 bg-rose-50 dark:text-rose-400 dark:bg-rose-950 dark:border-rose-800'
+    },
+    STATUS: {
+      active:
+        'text-emerald-700 bg-emerald-50 border-emerald-300 dark:text-emerald-400 dark:bg-emerald-950 dark:border-emerald-800',
+      paused: 'text-slate-700 bg-slate-50 border-slate-300 dark:text-slate-400 dark:bg-slate-950 dark:border-slate-800',
+      completed: 'text-green-700 bg-green-50 border-green-300 dark:text-green-400 dark:bg-green-950 dark:border-green-800'
     }
   },
 

@@ -13,13 +13,14 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { DateUtils, TASK_CONFIG } from '@/lib/core';
+import { ColorUtils, DateUtils, TASK_CONFIG } from '@/lib/core';
+import type { TaskPriority, TaskUpdates, TaskWithStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, CalendarIcon, CheckCircle2, Circle, Edit2, Flag, ListTodo, MoreVertical, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { DatePicker } from '../form/date-picker';
+import { Badge } from '../ui/badge';
 import { TaskInput } from './task-input';
-import type { TaskWithStats, TaskPriority, TaskUpdates } from '@/lib/types';
 
 interface PriorityConfig {
   value: TaskPriority;
@@ -39,12 +40,10 @@ interface PriorityBadgeProps {
 function PriorityBadge({ priority }: PriorityBadgeProps) {
   const config = getPriorityConfig(priority);
   return (
-    <div
-      className={cn('inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', config.bgColor, config.color)}
-    >
+    <Badge variant="outline" className={ColorUtils.getPriorityColor(priority)}>
       <Flag className="size-3" />
       {config.label}
-    </div>
+    </Badge>
   );
 }
 
