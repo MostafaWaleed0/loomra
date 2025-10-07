@@ -1,15 +1,16 @@
 import { GoalFactory } from '@/lib/goal/goal-factory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
-  Goal,
-  GoalWithStats,
-  GoalFilters,
-  GoalStats,
   DeleteStrategy,
+  Goal,
+  GoalFilters,
   GoalSortBy,
-  UseGoalsReturn,
-  TaskWithStats
+  GoalStats,
+  GoalWithStats,
+  TaskWithStats,
+  UseGoalsReturn
 } from '../types';
+import { useLocalState } from './use-local-state';
 
 export function useGoals(
   tasks: TaskWithStats[] = [],
@@ -17,7 +18,7 @@ export function useGoals(
   refreshHabits?: (() => Promise<void>) | null
 ): UseGoalsReturn {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [selectedGoalId, setSelectedGoalId] = useLocalState<string | null>('selected-goal-id', null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,13 +32,17 @@ export function useGoals(
       const goalsData = await window.electronAPI.goals.getAllGoals();
       setGoals(goalsData || []);
       setValidationErrors({});
+
+      if (selectedGoalId && !goalsData.find((g: Goal) => g.id === selectedGoalId)) {
+        setSelectedGoalId(null);
+      }
     } catch (error) {
       console.error('Failed to load goals:', error);
       setValidationErrors({ general: 'Failed to load data from database' });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedGoalId]);
 
   useEffect(() => {
     refreshGoals();
@@ -54,6 +59,40 @@ export function useGoals(
     },
     [tasks]
   );
+
+  // ==========================================================================
+  // COMPUTED VALUES - Must be before CRUD operations
+  // ==========================================================================
+  const goalsWithStats: GoalWithStats[] = useMemo(() => {
+    return goals.map((goal) => {
+      const goalTasks = tasks.filter((t) => t.goalId === goal.id);
+      const completedTasks = goalTasks.filter((t) => t.done).length;
+      const progress = GoalFactory.calculateProgress(completedTasks, goalTasks.length);
+
+      return {
+        ...goal,
+        progress,
+        taskCount: goalTasks.length,
+        completedTaskCount: completedTasks,
+        isCompleted: progress >= 100,
+        isOverdue: GoalFactory.isOverdue(goal),
+        daysUntilDeadline: GoalFactory.getDaysUntilDeadline(goal)
+      } as GoalWithStats;
+    });
+  }, [goals, tasks]);
+
+  const selectedGoal = useMemo(() => {
+    if (!selectedGoalId) return null;
+    return goalsWithStats.find((g) => g.id === selectedGoalId) || null;
+  }, [selectedGoalId, goalsWithStats]);
+
+  const setSelectedGoal = useCallback((goal: Goal | GoalWithStats | null) => {
+    if (!goal) {
+      setSelectedGoalId(null);
+    } else {
+      setSelectedGoalId(goal.id);
+    }
+  }, []);
 
   // ==========================================================================
   // CRUD - Optimistic updates (no refresh)
@@ -76,7 +115,7 @@ export function useGoals(
 
       const savedGoal = await window.electronAPI.goals.createGoal(newGoal);
       setGoals((prev) => [savedGoal, ...prev]);
-      setSelectedGoal(savedGoal);
+      setSelectedGoalId(savedGoal.id);
 
       return savedGoal;
     } catch (error) {
@@ -104,11 +143,7 @@ export function useGoals(
 
         // Optimistic update
         setGoals((prev) => prev.map((g) => (g.id === goalId ? updatedGoal : g)));
-        if (selectedGoal?.id === goalId) {
-          setSelectedGoal(updatedGoal);
-        }
 
-        // Persist to backend
         await window.electronAPI.goals.updateGoal(updatedGoal);
 
         return true;
@@ -116,12 +151,11 @@ export function useGoals(
         console.error('Error updating goal:', error);
         setValidationErrors({ general: 'Failed to update goal' });
 
-        // Rollback on error
         await refreshGoals();
         return false;
       }
     },
-    [goals, selectedGoal, refreshGoals]
+    [goals, refreshGoals]
   );
 
   const handleDeleteGoal = useCallback(
@@ -133,7 +167,11 @@ export function useGoals(
 
         if (success) {
           setGoals((prev) => prev.filter((g) => g.id !== goalId));
-          if (selectedGoal?.id === goalId) setSelectedGoal(null);
+
+          if (selectedGoalId === goalId) {
+            setSelectedGoalId(null);
+          }
+
           setValidationErrors({});
 
           if (deleteStrategy !== 'unlink') {
@@ -149,7 +187,7 @@ export function useGoals(
         return false;
       }
     },
-    [selectedGoal, refreshTasks, refreshHabits]
+    [selectedGoalId, refreshTasks, refreshHabits]
   );
 
   // ==========================================================================
@@ -162,26 +200,8 @@ export function useGoals(
   const pauseGoal = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'paused' }), [handleUpdateGoal]);
 
   // ==========================================================================
-  // COMPUTED VALUES
+  // STATS
   // ==========================================================================
-  const goalsWithStats: GoalWithStats[] = useMemo(() => {
-    return goals.map((goal) => {
-      const goalTasks = tasks.filter((t) => t.goalId === goal.id);
-      const completedTasks = goalTasks.filter((t) => t.done).length;
-      const progress = GoalFactory.calculateProgress(completedTasks, goalTasks.length);
-
-      return {
-        ...goal,
-        progress,
-        taskCount: goalTasks.length,
-        completedTaskCount: completedTasks,
-        isCompleted: progress >= 100,
-        isOverdue: GoalFactory.isOverdue(goal),
-        daysUntilDeadline: GoalFactory.getDaysUntilDeadline(goal)
-      } as GoalWithStats;
-    });
-  }, [goals, tasks]);
-
   const stats: GoalStats = useMemo(() => {
     const totalGoals = goals.length;
     const completedGoals = goalsWithStats.filter((g) => g.isCompleted).length;

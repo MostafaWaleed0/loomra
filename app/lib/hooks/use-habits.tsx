@@ -13,6 +13,7 @@ import type {
   UseHabitsReturn
 } from '@/lib/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocalState } from './use-local-state';
 
 // ============================================================================
 // HABIT STATS CALCULATOR
@@ -166,10 +167,19 @@ export class HabitStatsCalculator {
 export function useHabits(): UseHabitsReturn {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
-  const [selectedDate, setSelectedDate] = useState<DateString>(DateUtils.getCurrentDateString());
-  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
+  const [selectedDate, setSelectedDate] = useLocalState<DateString>('selected-date', DateUtils.getCurrentDateString());
+  const [selectedHabitId, setSelectedHabitId] = useLocalState<string | null>('selected-habit-id', null);
   const [isLoading, setIsLoading] = useState(true);
   const habitsCacheRef = useRef<Map<string, Habit>>(new Map());
+
+  const selectedHabit = useMemo(() => {
+    if (!selectedHabitId) return null;
+    const habit = habits.find((h) => h.id === selectedHabitId) || null;
+    if (habit) {
+      habitsCacheRef.current.set(habit.id, habit);
+    }
+    return habit;
+  }, [selectedHabitId, habits]);
 
   // ============================================================================
   // INITIAL DATA LOAD - Only on mount
@@ -195,12 +205,16 @@ export function useHabits(): UseHabitsReturn {
 
       setHabits(loadedHabits);
       setCompletions(allCompletions);
+
+      if (selectedHabitId && !loadedHabits.find((h) => h.id === selectedHabitId)) {
+        setSelectedHabitId(null);
+      }
     } catch (error) {
       console.error('Failed to load habits data:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [loadAllCompletions]);
+  }, [loadAllCompletions, selectedHabitId]);
 
   useEffect(() => {
     loadInitialData();
@@ -222,10 +236,6 @@ export function useHabits(): UseHabitsReturn {
 
           setHabits((prev) => prev.map((h) => (h.id === existingHabit.id ? savedHabit : h)));
           habitsCacheRef.current.set(savedHabit.id, savedHabit);
-
-          if (selectedHabit?.id === existingHabit.id) {
-            setSelectedHabit(savedHabit);
-          }
         } else {
           savedHabit = await window.electronAPI.habits.createHabit(normalizedHabit);
 
@@ -239,7 +249,7 @@ export function useHabits(): UseHabitsReturn {
         throw error;
       }
     },
-    [selectedHabit]
+    []
   );
 
   const handleDeleteHabit = useCallback(
@@ -252,8 +262,9 @@ export function useHabits(): UseHabitsReturn {
       setHabits((prev) => prev.filter((h) => h.id !== habitId));
       setCompletions((prev) => prev.filter((c) => c.habitId !== habitId));
       habitsCacheRef.current.delete(habitId);
-      if (selectedHabit?.id === habitId) {
-        setSelectedHabit(null);
+
+      if (selectedHabitId === habitId) {
+        setSelectedHabitId(null);
       }
 
       try {
@@ -269,7 +280,7 @@ export function useHabits(): UseHabitsReturn {
         throw error;
       }
     },
-    [habits, completions, selectedHabit]
+    [habits, completions, selectedHabitId]
   );
 
   // ============================================================================
@@ -465,35 +476,17 @@ export function useHabits(): UseHabitsReturn {
   // HABIT SELECTION
   // ============================================================================
 
-  const handleHabitSelect = useCallback(
-    (habitIdOrHabit: string | Habit | null): void => {
-      if (!habitIdOrHabit) {
-        setSelectedHabit(null);
-        return;
-      }
-      if (typeof habitIdOrHabit === 'string') {
-        const habit = getHabitById(habitIdOrHabit);
-        setSelectedHabit(habit);
-        return;
-      }
-      if (habitIdOrHabit.id) {
-        const habit = getHabitById(habitIdOrHabit.id);
-        setSelectedHabit(habit);
-        return;
-      }
-      setSelectedHabit(null);
-    },
-    [getHabitById]
-  );
-
-  useEffect(() => {
-    if (selectedHabit?.id) {
-      const updatedHabit = habits.find((h) => h.id === selectedHabit.id);
-      if (updatedHabit && updatedHabit.updatedAt !== selectedHabit.updatedAt) {
-        setSelectedHabit(updatedHabit);
-      }
+  const handleHabitSelect = useCallback((habitId: string | null): void => {
+    if (!habitId) {
+      setSelectedHabitId(null);
+      return;
     }
-  }, [habits, selectedHabit]);
+    if (typeof habitId === 'string') {
+      setSelectedHabitId(habitId);
+      return;
+    }
+    setSelectedHabitId(null);
+  }, []);
 
   // ============================================================================
   // COMPUTED VALUES

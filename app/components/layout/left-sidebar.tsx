@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import {
   Sidebar,
   SidebarContent,
@@ -10,8 +11,6 @@ import {
 } from '@/components/ui/sidebar';
 import { CheckCircle2, Moon, Target, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
 
 export function LeftSidebar({ activeView, setActiveView, stats, ...props }: any) {
   const { theme, setTheme } = useTheme();
@@ -35,7 +34,7 @@ export function LeftSidebar({ activeView, setActiveView, stats, ...props }: any)
   };
 
   return (
-    <Sidebar {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
