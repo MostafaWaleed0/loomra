@@ -1,18 +1,5 @@
 # Loomra
 
-<div align="center">
-
-**A modern, feature-rich goal tracker and habit manager built with Electron and Next.js**
-
-[![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/MostafaWaleed0/loomra)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Electron](https://img.shields.io/badge/Electron-38.2.1-47848F.svg)](https://www.electronjs.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15.4.6-black.svg)](https://nextjs.org/)
-
-</div>
-
----
-
 ## ✨ Features
 
 - **📊 Goal Management** - Create, track, and achieve your goals with detailed progress monitoring
