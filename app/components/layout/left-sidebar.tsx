@@ -44,7 +44,19 @@ export function LeftSidebar({ activeView, setActiveView, stats, ...props }: any)
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="bg-primary flex aspect-square size-8 items-center justify-center rounded-lg">
-                <Image src="/logo.svg" width={20} height={20} alt={'Loorma logo'} />
+                <svg
+                  width={20}
+                  height={20}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21.801 10A10 10 0 1 1 17 3.335" />
+                  <path d="m9 11 3 3L22 4" />
+                </svg>
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">Loomra</span>
