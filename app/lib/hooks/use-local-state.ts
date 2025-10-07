@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 
-export default function useLocalState<T>(key: string, initial: T) {
+export function useLocalState<T>(key: string, initial: T) {
   const [state, setState] = useState(() => {
     try {
       const raw = localStorage.getItem(key);
@@ -23,8 +23,8 @@ export default function useLocalState<T>(key: string, initial: T) {
         setState(raw ? JSON.parse(raw) : initial);
       } catch {}
     };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, [key, initial]);
 
   return [state, setState] as const;

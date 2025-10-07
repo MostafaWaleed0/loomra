@@ -514,7 +514,7 @@ export interface UseHabitsReturn {
   getHabitsByGoalId: (goalId: string) => Habit[];
   getHabitsWithMetadata: (date?: DateString) => HabitWithMetadata[];
   isSkippedOnDate: (habit: Habit, date: DateString) => boolean;
-  handleHabitSelect: (habitIdOrHabit: string | Habit | null) => void;
+  handleHabitSelect: (habitIdOrHabit: string | null) => void;
 }
 
 export interface UseGoalsReturn {

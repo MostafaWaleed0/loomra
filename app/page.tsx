@@ -11,10 +11,12 @@ import { TaskView } from './components/tasks/task-view';
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
 import { useGoals } from './lib/hooks/use-goals';
 import { useHabits } from './lib/hooks/use-habits';
+import { useLocalState } from './lib/hooks/use-local-state';
 import { useTasks } from './lib/hooks/use-tasks';
 
 export default function GoalsTrackerApp() {
-  const [activeView, setActiveView] = useState<'goals' | 'tasks' | 'habits'>('habits');
+  const [activeView, setActiveView] = useLocalState('active-view', 'goals');
+  const [open, setOpen] = useLocalState<boolean>('left-sidebar-open', true);
   const [isInitializing, setIsInitializing] = useState(true);
 
   const habitsCtx = useHabits();
@@ -39,6 +41,8 @@ export default function GoalsTrackerApp() {
 
   return (
     <SidebarProvider
+      open={open}
+      onOpenChange={setOpen}
       style={
         {
           '--sidebar-width': 'calc(var(--spacing) * 72)',
