@@ -1,3 +1,4 @@
+import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, BarChart3, Calendar, CheckCircle2 } from 'lucide-react';
 import { TaskPanel } from './task-panel';
 
@@ -10,18 +11,20 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center justify-between">
+    <Card>
+      <CardContent className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>
+            <p>{value}</p>
+            {subtitle && <p className="mt-1">{subtitle}</p>}
+          </CardDescription>
         </div>
         <div className={`p-3 rounded-lg border ${colors[color as keyof typeof colors]}`}>
           <Icon className="size-6" />
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
