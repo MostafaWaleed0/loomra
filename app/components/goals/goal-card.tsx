@@ -29,19 +29,23 @@ export function GoalCard({ goal, onClick, onEdit }: GoalCardProps) {
           <Edit2 />
         </Button>
       </CardHeader>
-      <CardContent>
-        <CardTitle className="text-lg">{goal.title}</CardTitle>
-        {goal.description && <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{goal.description}</p>}
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <CardTitle className="text-lg font-semibold break-all line-clamp-1">{goal.title}</CardTitle>
+          {goal.description && <p className="text-sm text-muted-foreground line-clamp-2 break-all">{goal.description}</p>}
+        </div>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{goal.progress}%</span>
+            <span className="font-semibold">{goal.progress}%</span>
           </div>
-          <Progress value={goal.progress} />
-          <div className="flex items-center justify-between pt-2">
-            <Badge className={ColorUtils.getPriorityColor(goal.priority)}>{goal.priority} priority</Badge>
-            <div className="text-xs text-muted-foreground">{goal.category}</div>
-          </div>
+          <Progress value={goal.progress} className="h-2" />
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <Badge className={ColorUtils.getPriorityColor(goal.priority)}>{goal.priority} priority</Badge>
+          <span className="text-xs text-muted-foreground font-medium">{goal.category}</span>
         </div>
       </CardContent>
     </Card>
