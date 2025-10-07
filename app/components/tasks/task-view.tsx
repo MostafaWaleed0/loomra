@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, BarChart3, Calendar, CheckCircle2 } from 'lucide-react';
+import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from './task-panel';
 
 const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) => {
@@ -31,13 +32,7 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
 export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: any) {
   return (
     <div>
-      <div className="flex items-start justify-between gap-6 mb-6">
-        <header>
-          <h1 className="text-3xl sm:text-4xl font-extrabold ">Task</h1>
-          <p className="mt-1 text-secondary-foreground">Plan, track and celebrate progress.</p>
-        </header>
-      </div>
-
+      <SectionHeader title="Task" description="Organize, prioritize, and complete tasks efficiently." showButton={false} />
       <div>
         {/* Stats Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
