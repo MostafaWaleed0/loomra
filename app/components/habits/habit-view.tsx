@@ -6,8 +6,8 @@ import type { GoalWithStats, Habit, UseHabitsReturn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Calendar, CalendarDays, Target } from 'lucide-react';
 import { useState } from 'react';
+import { SectionHeader } from '../layout/section-header';
 import { HabitDrawerView } from './habit-drawer/habit-drawer-view';
-import { HabitHeader } from './habit-header';
 import { HabitList } from './habit-list';
 
 interface DrawerState {
@@ -96,7 +96,12 @@ export function HabitView({
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <HabitHeader onCreateHabit={openCreateHabitDrawerView} />
+        <SectionHeader
+          title="Habit Tracker"
+          description="Build consistency, track routines, and celebrate small wins daily."
+          onButtonClick={openCreateHabitDrawerView}
+          buttonLabel="New Habit"
+        />
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">

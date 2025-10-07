@@ -23,19 +23,17 @@ export function GoalDetailHeader({ goal, onEdit, onStatusChange, onDelete }: Goa
 
   return (
     <CardHeader>
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
+      <div className="flex items-start justify-between gap-5">
+        <div className="flex items-start gap-4">
           <div
-            className="w-16 h-16 rounded-xl flex items-center justify-center text-white"
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-black/10 transition-transform hover:scale-105"
             style={{ backgroundColor: goal.color }}
           >
-            <Icon className="size-8" />
+            <Icon className="size-7" />
           </div>
-          <div className="max-w-130">
-            <CardTitle className="text-2xl">{goal.title}</CardTitle>
-            <CardDescription className="text-foreground/80 text-sm mt-1 break-words overflow-hidden">
-              {goal.description}
-            </CardDescription>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-xl font-semibold mb-1 break-all overflow-hidden">{goal.title}</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground line-clamp-2 break-all">{goal.description}</CardDescription>
           </div>
         </div>
         <DropdownMenu>

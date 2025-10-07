@@ -3,9 +3,11 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useGoalForm } from '@/lib/hooks/use-goal-form';
+import type { DeleteStrategy, Goal, GoalStats, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Award, CheckCircle2, Plus, Target, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from '../tasks/task-panel';
 import { EmptyState } from './empty-state';
 import { FilterBar } from './filter-bar';
@@ -17,7 +19,6 @@ import { GoalMetadataGrid } from './goal-metadata-grid';
 import { GoalNotesCard } from './goal-notes-card';
 import { GoalProgressSection } from './goal-progress-section';
 import { HabitsPanel } from './habits-panel';
-import type { DeleteStrategy, Goal, GoalStats, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -290,16 +291,12 @@ export function GoalView({
 
   return (
     <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold">Goals</h1>
-          <p className="text-muted-foreground mt-1">Plan, track and achieve your objectives</p>
-        </div>
-        <Button onClick={handleCreateNew}>
-          <Plus className="size-4 mr-2" />
-          New Goal
-        </Button>
-      </div>
+      <SectionHeader
+        title="Goals"
+        description="Set clear milestones, monitor progress, and achieve your ambitions."
+        onButtonClick={handleCreateNew}
+        buttonLabel="New Goal"
+      />
 
       <StatsCard stats={stats} />
 
