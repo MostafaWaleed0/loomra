@@ -11,7 +11,7 @@ import { TaskView } from './components/tasks/task-view';
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
 import { useGoals } from './lib/hooks/use-goals';
 import { useHabits } from './lib/hooks/use-habits';
-import { useTasks } from './lib/hooks/use-Tasks';
+import { useTasks } from './lib/hooks/use-tasks';
 
 export default function GoalsTrackerApp() {
   const [activeView, setActiveView] = useState<'goals' | 'tasks' | 'habits'>('habits');
