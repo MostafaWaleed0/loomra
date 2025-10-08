@@ -29,7 +29,7 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
   );
 };
 
-export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: any) {
+export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: UseTasksReturn) {
   return (
     <div>
       <SectionHeader title="Task" description="Organize, prioritize, and complete tasks efficiently." showButton={false} />
@@ -39,13 +39,13 @@ export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, han
           <StatsCard
             icon={BarChart3}
             title="Total Tasks"
-            value={stats.total}
+            value={stats.totalTasks}
             subtitle={`${stats.completionRate}% completed`}
             color="blue"
           />
-          <StatsCard icon={CheckCircle2} title="Completed" value={stats.completed} subtitle="Tasks finished" color="green" />
-          <StatsCard icon={AlertTriangle} title="Overdue" value={stats.overdue} subtitle="Need attention" color="red" />
-          <StatsCard icon={Calendar} title="Due Today" value={stats.dueToday} subtitle="Urgent tasks" color="yellow" />
+          <StatsCard icon={CheckCircle2} title="Completed" value={stats.completedTasks} subtitle="Tasks finished" color="green" />
+          <StatsCard icon={AlertTriangle} title="Overdue" value={stats.overdueTasks} subtitle="Need attention" color="red" />
+          <StatsCard icon={Calendar} title="Due Today" value={stats.pendingTasks} subtitle="Urgent tasks" color="yellow" />
         </div>
         <TaskPanel
           tasks={tasks}
