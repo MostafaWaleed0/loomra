@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
+import { UseTasksReturn } from '@/lib/types';
 import { AlertTriangle, BarChart3, Calendar, CheckCircle2 } from 'lucide-react';
 import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from './task-panel';
@@ -15,11 +16,11 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
     <Card>
       <CardContent className="flex items-center justify-between">
         <div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>
-            <p>{value}</p>
-            {subtitle && <p className="mt-1">{subtitle}</p>}
-          </CardDescription>
+          <CardTitle>
+            {title}
+            <span>{value}</span>
+          </CardTitle>
+          <CardDescription>{subtitle && <p className="mt-1">{subtitle}</p>}</CardDescription>
         </div>
         <div className={`p-3 rounded-lg border ${colors[color as keyof typeof colors]}`}>
           <Icon className="size-6" />
