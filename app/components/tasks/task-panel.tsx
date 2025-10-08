@@ -286,8 +286,8 @@ export function TaskPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <ListTodo className="size-5 text-primary" />
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <ListTodo className="size-6 text-primary" />
           Tasks
           {displayTasks.length > 0 && (
             <span className="text-sm font-normal text-muted-foreground">
