@@ -224,12 +224,36 @@ function EmptyTaskState() {
 
 function sortTasks(tasks: TaskWithStats[]): TaskWithStats[] {
   return [...tasks].sort((a, b) => {
-    const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
-    const aPriority = priorityOrder[a.priority || 'medium'];
-    const bPriority = priorityOrder[b.priority || 'medium'];
+    if (a.done !== b.done) {
+      return a.done ? 1 : -1;
+    }
 
-    if (aPriority !== bPriority) return bPriority - aPriority;
-    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (!a.done) {
+      if (a.isOverdue !== b.isOverdue) {
+        return a.isOverdue ? -1 : 1;
+      }
+
+      if (a.dueDate && b.dueDate) {
+        const comparison = DateUtils.calculateDaysBetween(a.dueDate, b.dueDate);
+        if (comparison !== 0) return comparison;
+      }
+
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
+
+      const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
+      const priorityDiff = priorityOrder[b.priority || 'medium'] - priorityOrder[a.priority || 'medium'];
+      if (priorityDiff !== 0) return priorityDiff;
+    }
+
+    if (a.done && a.updatedAt && b.updatedAt) {
+      return DateUtils.calculateDaysBetween(b.updatedAt, a.updatedAt);
+    }
+
+    if (a.createdAt && b.createdAt) {
+      return DateUtils.calculateDaysBetween(b.createdAt, a.createdAt);
+    }
+
     return 0;
   });
 }
