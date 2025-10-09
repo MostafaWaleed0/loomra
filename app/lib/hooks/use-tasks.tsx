@@ -39,7 +39,7 @@ export function useTasks(): UseTasksReturn {
   // CREATE - Optimistic update
   // ==========================================================================
   const handleCreateTask = useCallback(
-    async (title: string, goalId?: string | null, dueDate?: string): Promise<Task | undefined> => {
+    async (title: string, goalId?: string | null, dueDate?: string, priority?: TaskPriority): Promise<Task | undefined> => {
       if (!title?.trim()) return;
 
       const taskData: TaskFormData = {
@@ -49,7 +49,7 @@ export function useTasks(): UseTasksReturn {
         done: false,
         goalId: goalId ?? null,
         dueDate: dueDate ?? undefined,
-        priority: 'medium',
+        priority: priority ?? 'medium',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };

@@ -16,11 +16,21 @@ import { Input } from '@/components/ui/input';
 import { ColorUtils, DateUtils, TASK_CONFIG } from '@/lib/core';
 import type { TaskPriority, TaskUpdates, TaskWithStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, CalendarIcon, CheckCircle2, Circle, Edit2, Flag, ListTodo, MoreVertical, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarIcon,
+  CheckCircle2,
+  Circle,
+  Edit2,
+  Flag,
+  ListTodo,
+  MoreVertical,
+  Plus,
+  Trash2
+} from 'lucide-react';
 import { useState } from 'react';
 import { DatePicker } from '../form/date-picker';
 import { Badge } from '../ui/badge';
-import { TaskInput } from './task-input';
 
 interface PriorityConfig {
   value: TaskPriority;
@@ -57,6 +67,7 @@ interface TaskEditRowProps {
   onSave: () => void;
   onCancel: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  mode?: 'create' | 'edit';
 }
 
 function TaskEditRow({
@@ -68,14 +79,15 @@ function TaskEditRow({
   onDueDateChange,
   onSave,
   onCancel,
-  onKeyDown
+  onKeyDown,
+  mode = 'edit'
 }: TaskEditRowProps) {
   return (
     <div className="flex w-full items-center gap-2">
       <Input
         value={editingTitle}
         onChange={(e) => onTitleChange(e.target.value)}
-        placeholder="Task title"
+        placeholder={mode === 'create' ? 'Add a new task...' : 'Task title'}
         onKeyDown={onKeyDown}
         autoFocus
         className="flex-1"
@@ -104,11 +116,17 @@ function TaskEditRow({
 
       <DatePicker date={editingDueDate} onSelect={onDueDateChange} mode="icon" side="left" />
 
-      <Button variant="ghost" size="icon" onClick={onSave} aria-label="Save task" className="size-10">
-        <CheckCircle2 className="size-5 text-green-600" />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onSave}
+        aria-label={mode === 'create' ? 'Add task' : 'Save task'}
+        className="size-10"
+      >
+        {mode === 'create' ? <Plus className="size-5 text-primary" /> : <CheckCircle2 className="size-5 text-green-600" />}
       </Button>
 
-      <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel edit" className="size-10">
+      <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel" className="size-10">
         <Circle className="size-5 text-muted-foreground" />
       </Button>
     </div>
@@ -195,9 +213,11 @@ function TaskDisplayRow({ task, onToggle, onEdit, onDelete, onPriorityChange }: 
 function EmptyTaskState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <ListTodo className="size-12 text-muted-foreground/50 mb-3" />
-      <p className="text-sm text-muted-foreground font-medium">No tasks yet</p>
-      <p className="text-xs text-muted-foreground mt-1">Add your first task above to get started!</p>
+      <div className="rounded-full bg-primary/10 p-4 mb-4">
+        <ListTodo className="size-12 text-primary" />
+      </div>
+      <p className="text-base text-foreground font-semibold mb-1">No tasks yet</p>
+      <p className="text-sm text-muted-foreground">Click "Add Task" above to create your first task</p>
     </div>
   );
 }
@@ -214,14 +234,83 @@ function sortTasks(tasks: TaskWithStats[]): TaskWithStats[] {
   });
 }
 
+interface QuickAddTaskProps {
+  onCreate: (title: string, dueDate?: string, priority?: TaskPriority) => void;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+function QuickAddTask({ onCreate, isExpanded, onToggle }: QuickAddTaskProps) {
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [priority, setPriority] = useState<TaskPriority>('medium');
+
+  function handleCreate() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    onCreate(trimmedTitle, dueDate?.toISOString(), priority);
+
+    // Reset form
+    setTitle('');
+    setDueDate(undefined);
+    setPriority('medium');
+    onToggle(); // Collapse after creation
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreate();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setTitle('');
+      setDueDate(undefined);
+      setPriority('medium');
+      onToggle();
+    }
+  }
+
+  if (!isExpanded) {
+    return (
+      <Button onClick={onToggle} className="w-full justify-start gap-2 h-11 text-base" variant="outline">
+        <Plus className="size-5" />
+        Add Task
+      </Button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-3">
+      <TaskEditRow
+        editingTitle={title}
+        editingPriority={priority}
+        editingDueDate={dueDate}
+        onTitleChange={setTitle}
+        onPriorityChange={setPriority}
+        onDueDateChange={setDueDate}
+        onSave={handleCreate}
+        onCancel={onToggle}
+        onKeyDown={handleKeyDown}
+        mode="create"
+      />
+      <p className="text-xs text-muted-foreground mt-2 ml-1">
+        Press <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Enter</kbd> to add or{' '}
+        <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Esc</kbd> to cancel
+      </p>
+    </div>
+  );
+}
+
 interface TaskPanelProps {
   tasks: TaskWithStats[];
   selectedGoalId: string | null;
-  onCreateTask: (title: string, goalId?: string, dueDate?: string) => void;
+  onCreateTask: (title: string, goalId?: string, dueDate?: string, priority?: TaskPriority) => void;
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (taskId: string, updates: TaskUpdates) => void;
   getTasksByGoal?: (goalId: string | null) => TaskWithStats[] | undefined;
+  showFilter?: boolean;
 }
 
 export function TaskPanel({
@@ -231,12 +320,14 @@ export function TaskPanel({
   onToggleTask,
   onDeleteTask,
   onEditTask,
-  getTasksByGoal
+  getTasksByGoal,
+  showFilter
 }: TaskPanelProps) {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
   const [editingDueDate, setEditingDueDate] = useState<Date | undefined>(undefined);
   const [editingPriority, setEditingPriority] = useState<TaskPriority>('medium');
+  const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
 
   function handleStartEdit(task: TaskWithStats): void {
     setEditingTaskId(task.id);
@@ -280,6 +371,10 @@ export function TaskPanel({
     }
   }
 
+  function handleQuickAdd(title: string, dueDate?: string, priority?: TaskPriority): void {
+    onCreateTask(title, selectedGoalId ?? undefined, dueDate, priority);
+  }
+
   const displayTasks = getTasksByGoal?.(selectedGoalId) || tasks;
   const sortedTasks = sortTasks(displayTasks);
 
@@ -297,45 +392,51 @@ export function TaskPanel({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-5">
-        <TaskInput onCreate={(title, dueDate) => onCreateTask(title, selectedGoalId ?? undefined, dueDate)} />
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar max-h-96">
-          {sortedTasks.map((task) => (
-            <div
-              key={task.id}
-              className={cn(
-                'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
-                task.done
-                  ? 'bg-muted/20 opacity-75'
-                  : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
-              )}
-            >
-              {editingTaskId === task.id ? (
-                <TaskEditRow
-                  editingTitle={editingTitle}
-                  editingPriority={editingPriority}
-                  editingDueDate={editingDueDate}
-                  onTitleChange={setEditingTitle}
-                  onPriorityChange={setEditingPriority}
-                  onDueDateChange={setEditingDueDate}
-                  onSave={() => handleSaveEdit(task.id)}
-                  onCancel={handleCancelEdit}
-                  onKeyDown={(e) => handleKeyDown(e, task.id)}
-                />
-              ) : (
-                <TaskDisplayRow
-                  task={task}
-                  onToggle={() => onToggleTask(task.id)}
-                  onEdit={() => handleStartEdit(task)}
-                  onDelete={() => onDeleteTask(task.id)}
-                  onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
-                />
-              )}
-            </div>
-          ))}
+      <CardContent className="space-y-4">
+        <QuickAddTask
+          onCreate={handleQuickAdd}
+          isExpanded={isQuickAddExpanded}
+          onToggle={() => setIsQuickAddExpanded(!isQuickAddExpanded)}
+        />
+        {displayTasks.length > 0 && (
+          <div className="flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+            {sortedTasks.map((task) => (
+              <div
+                key={task.id}
+                className={cn(
+                  'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
+                  task.done
+                    ? 'bg-muted/20 opacity-75'
+                    : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
+                )}
+              >
+                {editingTaskId === task.id ? (
+                  <TaskEditRow
+                    editingTitle={editingTitle}
+                    editingPriority={editingPriority}
+                    editingDueDate={editingDueDate}
+                    onTitleChange={setEditingTitle}
+                    onPriorityChange={setEditingPriority}
+                    onDueDateChange={setEditingDueDate}
+                    onSave={() => handleSaveEdit(task.id)}
+                    onCancel={handleCancelEdit}
+                    onKeyDown={(e) => handleKeyDown(e, task.id)}
+                  />
+                ) : (
+                  <TaskDisplayRow
+                    task={task}
+                    onToggle={() => onToggleTask(task.id)}
+                    onEdit={() => handleStartEdit(task)}
+                    onDelete={() => onDeleteTask(task.id)}
+                    onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
-          {displayTasks.length === 0 && <EmptyTaskState />}
-        </div>
+        {displayTasks.length === 0 && <EmptyTaskState />}
       </CardContent>
     </Card>
   );
