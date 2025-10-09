@@ -168,6 +168,7 @@ function GoalDetailView({
               onDeleteTask={onDeleteTask}
               onEditTask={onEditTask}
               getTasksByGoal={(goalId) => tasks.filter((t) => t.goalId === goalId)}
+              showFilter={false}
             />
             <HabitsPanel getHabitsByGoalId={getHabitsByGoalId} selectedGoalId={goal.id} />
           </div>
@@ -323,7 +324,7 @@ export function GoalView({
           action={goals.length === 0 ? { label: 'Create Your First Goal', onClick: handleCreateNew, icon: Plus } : undefined}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredGoals.map((goal) => (
             <GoalCard
               key={goal.id}

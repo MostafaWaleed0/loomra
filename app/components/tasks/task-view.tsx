@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
+import { useLocalState } from '@/lib/hooks/use-local-state';
 import { UseTasksReturn } from '@/lib/types';
 import { AlertTriangle, BarChart3, Calendar, CheckCircle2 } from 'lucide-react';
 import { SectionHeader } from '../layout/section-header';
@@ -31,6 +32,9 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
 };
 
 export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: UseTasksReturn) {
+  const [taskFilter, setTaskFilter] = useLocalState('taskView.tasks.taskFilter', 'all');
+  const [timeFilter, setTimeFilter] = useLocalState('taskView.tasks.timeFilter', 'all');
+
   return (
     <div>
       <SectionHeader title="Task" description="Organize, prioritize, and complete tasks efficiently." showButton={false} />
@@ -55,6 +59,10 @@ export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, han
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
           onEditTask={handleEditTask}
+          taskFilter={taskFilter}
+          timeFilter={timeFilter}
+          onTaskFilterChange={setTaskFilter}
+          onTimeFilterChange={setTimeFilter}
         />
       </div>
     </div>
