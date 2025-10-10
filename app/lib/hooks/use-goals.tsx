@@ -10,7 +10,6 @@ import type {
   TaskWithStats,
   UseGoalsReturn
 } from '../types';
-import { useLocalState } from './use-local-state';
 
 export function useGoals(
   tasks: TaskWithStats[] = [],
