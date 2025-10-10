@@ -13,7 +13,6 @@ import type {
   UseHabitsReturn
 } from '@/lib/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocalState } from './use-local-state';
 
 // ============================================================================
 // HABIT STATS CALCULATOR
@@ -205,8 +204,8 @@ export class HabitStatsCalculator {
 export function useHabits(): UseHabitsReturn {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
-  const [selectedDate, setSelectedDate] = useLocalState<DateString>('selected-date', DateUtils.getCurrentDateString());
-  const [selectedHabitId, setSelectedHabitId] = useLocalState<string | null>('selected-habit-id', null);
+  const [selectedDate, setSelectedDate] = useState<DateString>(DateUtils.getCurrentDateString());
+  const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const habitsCacheRef = useRef<Map<string, Habit>>(new Map());
 
