@@ -1,6 +1,7 @@
 'use client';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DashboardView } from './components/dashboard/dashboard-view';
 import { GoalView } from './components/goals/goal-view';
 import { HabitView } from './components/habits/habit-view';
 import { LeftSidebar } from './components/layout/left-sidebar';
@@ -37,8 +38,6 @@ export default function GoalsTrackerApp() {
     );
   }
 
-  const stats = [habitsCtx.stats, tasksCtx.stats, goalsCtx.stats];
-
   return (
     <SidebarProvider
       open={open}
@@ -50,12 +49,28 @@ export default function GoalsTrackerApp() {
         } as React.CSSProperties
       }
     >
-      <LeftSidebar variant="inset" activeView={activeView} setActiveView={setActiveView} stats={stats} />
+      <LeftSidebar variant="inset" activeView={activeView} setActiveView={setActiveView} />
       <SidebarInset>
         <SiteHeader activeView={activeView} />
         <UpdateNotification />
-        <div className="flex flex-1 flex-col p-6">
-          <div className="@container/main flex flex-1 flex-col gap-2 max-w-[85rem] w-full mx-auto">
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2 p-6">
+            {activeView === 'dashboard' && (
+              <DashboardView
+                goals={goalsCtx.goals}
+                goalsStats={goalsCtx.stats}
+                habitsStats={habitsCtx.stats}
+                getHabitsWithMetadata={habitsCtx.getHabitsWithMetadata}
+                completions={habitsCtx.completions}
+                onSetHabitCompletion={habitsCtx.setHabitCompletion}
+                tasks={tasksCtx.tasks}
+                tasksStats={tasksCtx.stats}
+                onCreateTask={tasksCtx.handleCreateTask}
+                onEditTask={tasksCtx.handleEditTask}
+                onToggleTask={tasksCtx.handleToggleTask}
+                onDeleteTask={tasksCtx.handleDeleteTask}
+              />
+            )}
             {activeView === 'goals' && (
               <GoalView
                 getHabitsByGoalId={habitsCtx.getHabitsByGoalId}
