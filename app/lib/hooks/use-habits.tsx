@@ -49,13 +49,28 @@ export class HabitStatsCalculator {
 
     const percentage = dueToday > 0 ? Math.round((completedForDate / dueToday) * 100) : 0;
 
+    // Calculate aggregate streak data
+    const totalStreak = habits.reduce((sum, h) => {
+      const stats = HabitCompletionManager.calculateHabitStats(completions, h);
+      return sum + (stats.streak || 0);
+    }, 0);
+
+    const bestStreak = Math.max(
+      ...habits.map((h) => {
+        const stats = HabitCompletionManager.calculateHabitStats(completions, h);
+        return stats.bestStreak || 0;
+      }),
+      0
+    );
+
     return {
       completed: completedForDate,
       total,
       dueToday,
       percentage,
-      totalStreak: habits.reduce((sum, h) => sum + (h.streak || 0), 0),
-      bestStreak: Math.max(...habits.map((h) => h.bestStreak || 0), 0),
+      totalTodayHabit: habitsForDate.length,
+      totalStreak,
+      bestStreak,
       avgCompletion: this.calculateAverageCompletion(habits, completions),
       activeHabits: this.calculateActiveHabits(habits, completions),
       completedThisWeek: this.calculateCompletedThisWeek(habits, completions),
@@ -68,6 +83,7 @@ export class HabitStatsCalculator {
       completed: 0,
       total: 0,
       percentage: 0,
+      totalTodayHabit: 0,
       totalStreak: 0,
       avgCompletion: 0,
       bestStreak: 0,
@@ -82,12 +98,34 @@ export class HabitStatsCalculator {
     if (!habits.length) return 0;
 
     const totalAvg = habits.reduce((sum, habit) => {
-      const daysSinceCreation = Math.max(1, DateUtils.calculateDaysBetween(habit.createdAt));
+      const startDate = habit.startDate || habit.createdAt;
+      const today = DateUtils.getCurrentDateString();
+
+      // Calculate days between start date and today (inclusive)
+      const daysSinceCreation = DateUtils.calculateDaysBetween(startDate, today);
+
+      // Add 1 to include today in the count (if between is 0, we still have 1 day)
+      const days = Math.max(1, daysSinceCreation + 1);
+
       const actualCompletions = this.getActualCompletions(habit, completions);
-      return sum + actualCompletions / daysSinceCreation;
+      const completionRate = actualCompletions / days;
+
+      // Check for NaN or Infinity
+      if (isNaN(completionRate) || !isFinite(completionRate)) {
+        return sum;
+      }
+
+      return sum + completionRate;
     }, 0);
 
-    return Math.round((totalAvg / habits.length) * 100);
+    const avgResult = (totalAvg / habits.length) * 100;
+
+    // Return 0 if result is NaN or Infinity
+    if (isNaN(avgResult) || !isFinite(avgResult)) {
+      return 0;
+    }
+
+    return Math.round(avgResult);
   }
 
   static calculateActiveHabits(habits: Habit[], completions: HabitCompletion[]): number {
@@ -447,25 +485,65 @@ export function useHabits(): UseHabitsReturn {
 
   const getHabitsWithMetadata = useCallback(
     (date: DateString = selectedDate): HabitWithMetadata[] => {
-      return habits.map((habit) => {
+      const today = DateUtils.getCurrentDateString();
+      const weekStart = DateUtils.getWeekStart();
+      const weekEnd = DateUtils.getWeekEnd();
+      const monthStart = DateUtils.getMonthStart();
+      const monthEnd = DateUtils.getMonthEnd();
+      const habitsForDate = getHabitsForDate(selectedDate);
+
+      return habitsForDate.map((habit) => {
         const status = HabitScheduler.getHabitStatusForDate(habit, completions, date);
+
+        // Calculate completions for this week
+        const weekDates = DateUtils.getDateRange(weekStart, weekEnd);
+        const completionsThisWeek = weekDates.filter(
+          (d) =>
+            HabitCompletionManager.isCompletedOnDate(completions, habit.id, d) &&
+            !HabitCompletionManager.isSkippedOnDate(completions, habit.id, d)
+        ).length;
+
+        // Calculate completions for this month
+        const monthDates = DateUtils.getDateRange(monthStart, monthEnd);
+        const completionsThisMonth = monthDates.filter(
+          (d) =>
+            HabitCompletionManager.isCompletedOnDate(completions, habit.id, d) &&
+            !HabitCompletionManager.isSkippedOnDate(completions, habit.id, d)
+        ).length;
+
+        // Calculate completion rate
+        const startDate = habit.startDate || habit.createdAt;
+        const datesSinceStart = DateUtils.getDateRange(startDate, today);
+        const scheduledDays = datesSinceStart.filter((d) =>
+          HabitFrequencyManager.shouldCompleteOnDate(habit.frequency, d, startDate)
+        ).length;
+        const actualCompletions = HabitStatsCalculator.getActualCompletions(habit, completions);
+        const completionRate = scheduledDays > 0 ? Math.round((actualCompletions / scheduledDays) * 100) : 0;
+
+        console.log(scheduledDays, actualCompletions);
+
+        // Calculate streak data from completions
+        const habitStats = HabitCompletionManager.calculateHabitStats(completions, habit);
+        const actualCompletionsCount = HabitStatsCalculator.getActualCompletions(habit, completions);
+
+        // Find last completed date
+        const habitCompletions = HabitCompletionManager.getHabitCompletions(completions, habit.id);
+        const completedRecords = habitCompletions
+          .filter((r) => r.completed && !r.skipped)
+          .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+        const lastCompletedAt = completedRecords.length > 0 ? completedRecords[0].completedAt : null;
+
         return {
           ...habit,
           frequencySummary: HabitFrequencyManager.describe(habit.frequency),
-          isDueOnDate: status.isScheduled,
-          completedOnDate: status.isCompleted,
           actualAmount: status.actualAmount,
-          isDueToday: HabitScheduler.shouldCompleteOnDate(habit, completions, DateUtils.getCurrentDateString()),
-          completedToday: HabitCompletionManager.isCompletedOnDate(completions, habit.id, DateUtils.getCurrentDateString()),
-          skippedOnDate: status.isSkipped,
-          skippedToday: HabitCompletionManager.isSkippedOnDate(completions, habit.id, DateUtils.getCurrentDateString()),
-          currentStreak: habit.streak || 0,
-          longestStreak: habit.bestStreak || 0,
-          completionRate: 0,
-          totalCompletions: habit.totalCompletions || 0,
-          lastCompletedAt: habit.lastCompleted || null,
-          completionsThisWeek: 0,
-          completionsThisMonth: 0
+          currentStreak: habitStats.streak || 0,
+          longestStreak: habitStats.bestStreak || 0,
+          completionRate,
+          totalCompletions: actualCompletionsCount,
+          lastCompletedAt,
+          completionsThisWeek,
+          completionsThisMonth
         };
       });
     },

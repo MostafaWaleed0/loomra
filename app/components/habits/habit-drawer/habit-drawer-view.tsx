@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DateUtils, HABIT_CONFIG, HabitFormManager, SYSTEM_CONSTANTS, UI_CONFIG, WEEK_DAYS } from '@/lib/core';
 import { HabitFactory, HabitFrequencyManager } from '@/lib/habit';
-import type { FrequencyConfig, GoalWithStats, Habit, HabitFormData } from '@/lib/types';
+import type { FrequencyConfig, GoalWithStats, Habit, HabitFormData, HabitWithMetadata } from '@/lib/types';
 import { PenTool, Save, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BasicInfoForm } from './basic-info-form';
@@ -21,7 +21,7 @@ interface HabitDrawerViewProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (habitData: HabitFormData | null, existingHabit: Habit | null) => Promise<Habit>;
-  habitData: Habit | null;
+  habitData: HabitWithMetadata | null;
   availableGoals: GoalWithStats[];
 }
 

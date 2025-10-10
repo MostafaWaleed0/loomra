@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ColorUtils, DateUtils, FormatUtils } from '@/lib/core';
-import type { GoalWithStats, Habit, UseHabitsReturn } from '@/lib/types';
+import type { GoalWithStats, HabitWithMetadata, UseHabitsReturn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Calendar, CalendarDays, Target } from 'lucide-react';
 import { useState } from 'react';
@@ -12,7 +12,7 @@ import { HabitList } from './habit-list';
 
 interface DrawerState {
   isOpen: boolean;
-  editingHabit: Habit | null;
+  editingHabit: HabitWithMetadata | null;
   mode: 'create' | 'edit';
 }
 
@@ -67,7 +67,7 @@ export function HabitView({
   selectedDate,
   handleSaveHabit,
   handleDeleteHabit,
-  getHabitsForDate,
+  getHabitsWithMetadata,
   setHabitCompletion,
   handleHabitSelect
 }: HabitViewProps) {
@@ -87,11 +87,11 @@ export function HabitView({
     setDrawerState({ isOpen: true, editingHabit: null, mode: 'create' });
   }
 
-  function openEditHabitDrawerView(habit: Habit): void {
+  function openEditHabitDrawerView(habit: HabitWithMetadata): void {
     setDrawerState({ isOpen: true, editingHabit: habit, mode: 'edit' });
   }
 
-  const habitsWithMetadata = getHabitsForDate(selectedDate);
+  const habitsWithMetadata = getHabitsWithMetadata(selectedDate);
 
   return (
     <div className="space-y-6">

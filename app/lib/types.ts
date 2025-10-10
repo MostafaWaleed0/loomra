@@ -102,11 +102,6 @@ export interface Habit {
   reminder: HabitReminder;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  // Stats (calculated)
-  streak?: number;
-  bestStreak?: number;
-  totalCompletions?: number;
-  lastCompleted?: DateString | null;
 }
 
 export interface HabitFormData {
@@ -126,13 +121,7 @@ export interface HabitFormData {
 
 export interface HabitWithMetadata extends Habit {
   frequencySummary: string;
-  isDueOnDate: boolean;
-  completedOnDate: boolean;
   actualAmount: number;
-  isDueToday: boolean;
-  completedToday: boolean;
-  skippedOnDate: boolean;
-  skippedToday: boolean;
   currentStreak: number;
   longestStreak: number;
   completionRate: number;
@@ -320,6 +309,7 @@ export interface HabitStats {
   total: number;
   dueToday: number;
   percentage: number;
+  totalTodayHabit: number;
   totalStreak: number;
   bestStreak: number;
   avgCompletion: number;

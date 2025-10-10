@@ -13,18 +13,7 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Row } from '@tanstack/react-table';
-import {
-  BarChart3,
-  Calendar,
-  CheckCircle,
-  Edit2,
-  GripVertical,
-  Lock,
-  MoreVertical,
-  RotateCcw,
-  Trash2,
-  XCircle
-} from 'lucide-react';
+import { Calendar, Edit2, GripVertical, Lock, MoreVertical, Trash2 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
 // UI Components
@@ -40,15 +29,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 // Core Utilities
-import { ColorUtils, DateUtils, FormatUtils, HabitFormManager, UIUtils } from '@/lib/core';
+import { ColorUtils, DateUtils, FormatUtils } from '@/lib/core';
 import { HABIT_CONFIG } from '@/lib/core/constants';
-import { HabitCompletionManager, HabitFrequencyManager, HabitStatusManager } from '@/lib/habit';
-import { Habit, HabitCompletion, DateString } from '@/lib/types';
+import { HabitFrequencyManager, HabitStatusManager } from '@/lib/habit';
+import { DateString, Habit, HabitCompletion, HabitWithMetadata } from '@/lib/types';
 
 // Components
 import { cn } from '@/lib/utils';
 import { CompletionControl } from '../form/completion-control';
 import { HabitIcon } from '../habit-icon';
+import { HabitActionsMenuContent } from './habit-actions-menu-content';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -61,16 +51,16 @@ interface Goal {
 }
 
 interface HabitListProps {
-  habits: Habit[];
+  habits: HabitWithMetadata[];
   completions: HabitCompletion[];
   selectedDate: DateString;
   onHabitSelect: (habitId: string) => void;
-  onEditHabit: (habit: Habit) => void;
+  onEditHabit: (habit: HabitWithMetadata) => void;
   onDeleteHabit: (habitId: string) => void;
   onSetHabitCompletion: (habitId: string, date: DateString, completed: boolean, data?: any) => void;
-  selectedHabit?: Habit | null;
+  selectedHabit?: HabitWithMetadata | null;
   showDateContext?: boolean;
-  onHabitReorder?: (habits: Habit[]) => void;
+  onHabitReorder?: (habits: HabitWithMetadata[]) => void;
   goals?: Goal[];
 }
 
@@ -80,9 +70,9 @@ interface DragHandleProps {
 }
 
 interface DraggableHabitRowProps {
-  row: Row<Habit>;
+  row: Row<HabitWithMetadata>;
   completions: HabitCompletion[];
-  onEditHabit: (habit: Habit) => void;
+  onEditHabit: (habit: HabitWithMetadata) => void;
   onDeleteHabit: (habitId: string) => void;
   onHabitSelect: (habitId: string) => void;
   onSetHabitCompletion: (habitId: string, date: DateString, completed: boolean, data?: any) => void;
@@ -91,24 +81,15 @@ interface DraggableHabitRowProps {
 }
 
 interface HabitRowContentProps {
-  habit: Habit;
+  habit: HabitWithMetadata;
   completions: HabitCompletion[];
   selectedDate: DateString;
-  onEditHabit: (habit: Habit) => void;
+  onEditHabit: (habit: HabitWithMetadata) => void;
   onDeleteHabit: (habitId: string) => void;
   onHabitSelect: (habitId: string) => void;
   onSetHabitCompletion: (habitId: string, date: DateString, completed: boolean, data?: any) => void;
   goals: Goal[];
   dragHandleProps: DragHandleProps;
-}
-
-interface HabitActionsMenuContentProps {
-  habit: Habit;
-  completionRecord: HabitCompletion | null;
-  completionActions: any;
-  canModifyCompletion: boolean;
-  onEditHabit: (habit: Habit) => void;
-  onDeleteHabit: (habitId: string) => void;
 }
 
 // ============================================================================
@@ -187,14 +168,13 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
     goals,
     dragHandleProps
   }) => {
-    const completionActions = HabitFormManager.createCompletionHandlers(habit, completions, selectedDate, onSetHabitCompletion);
-
     const dayStatus = HabitStatusManager.getDayStatus(habit, completions, selectedDate);
     const statusInfo = HabitStatusManager.getStatusMessage(dayStatus, habit);
-    const completionRecord = HabitCompletionManager.getRecord(completions, habit.id, selectedDate);
     const frequencyDescription = HabitFrequencyManager.describe(habit.frequency);
 
     const canModifyCompletion = !DateUtils.isFutureDate(selectedDate) && dayStatus !== HABIT_CONFIG.STATUS.LOCKED;
+
+    console.log(habit);
 
     return (
       <>
@@ -258,7 +238,7 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
 
           {/* Streak Info */}
           <div className="flex flex-col items-center min-w-12 sm:min-w-16">
-            <div className="text-sm font-semibold text-foreground">{habit.streak || 0}</div>
+            <div className="text-sm font-semibold text-foreground">{habit.currentStreak || 0}</div>
             <div className="text-xs text-muted-foreground">Streak</div>
           </div>
 
@@ -273,12 +253,25 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
             <DropdownMenuContent align="end" className="w-45">
               <HabitActionsMenuContent
                 habit={habit}
-                completionRecord={completionRecord}
-                completionActions={completionActions}
+                completions={completions}
+                selectedDate={selectedDate}
+                onSetHabitCompletion={onSetHabitCompletion}
                 canModifyCompletion={canModifyCompletion}
-                onEditHabit={onEditHabit}
-                onDeleteHabit={onDeleteHabit}
               />
+              <DropdownMenuSeparator />
+              {/* Management Actions */}
+              <DropdownMenuItem onClick={() => onEditHabit(habit)}>
+                <Edit2 className="mr-1 size-4" />
+                Edit Habit
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {/* Destructive Action */}
+              <DropdownMenuItem onClick={() => onDeleteHabit(habit.id)} className="text-destructive">
+                <Trash2 className="mr-1 size-4" />
+                Delete Habit
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -288,80 +281,6 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
 );
 
 HabitRowContent.displayName = 'HabitRowContent';
-
-// ============================================================================
-// HABIT ACTIONS MENU COMPONENT
-// ============================================================================
-
-const HabitActionsMenuContent = React.memo<HabitActionsMenuContentProps>(
-  ({ habit, completionRecord, completionActions, canModifyCompletion, onEditHabit, onDeleteHabit }) => {
-    return (
-      <>
-        {/* Completion Actions */}
-        {canModifyCompletion && completionActions && (
-          <>
-            {completionRecord?.completed && !completionRecord?.skipped ? (
-              <>
-                <DropdownMenuItem onClick={completionActions.markIncomplete} className="text-gray-600">
-                  <RotateCcw className="mr-1 size-4" />
-                  Mark Incomplete
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={completionActions.toggleSkip} className="text-amber-600">
-                  <Calendar className="mr-1 size-4" />
-                  Skip Today
-                </DropdownMenuItem>
-              </>
-            ) : completionRecord?.skipped ? (
-              <>
-                <DropdownMenuItem onClick={completionActions.toggleSkip} className="text-blue-600">
-                  <RotateCcw className="mr-1 size-4" />
-                  Unskip Today
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={completionActions.markComplete} className="text-green-600">
-                  <CheckCircle className="mr-1 size-4" />
-                  Mark Complete
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <>
-                <DropdownMenuItem onClick={completionActions.markComplete} className="text-green-600">
-                  <CheckCircle className="mr-1 size-4" />
-                  Mark Complete
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={completionActions.toggleSkip} className="text-amber-600">
-                  <XCircle className="mr-1 size-4" />
-                  Skip Today
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-          </>
-        )}
-
-        {/* Management Actions */}
-        <DropdownMenuItem onClick={() => onEditHabit(habit)}>
-          <Edit2 className="mr-1 size-4" />
-          Edit Habit
-        </DropdownMenuItem>
-
-        <DropdownMenuItem>
-          <BarChart3 className="mr-1 size-4" />
-          View Statistics
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        {/* Destructive Action */}
-        <DropdownMenuItem onClick={() => onDeleteHabit(habit.id)} className="text-destructive">
-          <Trash2 className="mr-1 size-4" />
-          Delete Habit
-        </DropdownMenuItem>
-      </>
-    );
-  }
-);
-
-HabitActionsMenuContent.displayName = 'HabitActionsMenuContent';
 
 // ============================================================================
 // MAIN HABIT LIST COMPONENT
@@ -435,7 +354,7 @@ export const HabitList = React.memo<HabitListProps>(
             <SortableContext items={dataIds} strategy={verticalListSortingStrategy}>
               <div className="divide-y divide-border overflow-auto">
                 {data.map((habit) => {
-                  const rowData = { original: habit, id: habit.id } as Row<Habit>;
+                  const rowData = { original: habit, id: habit.id } as Row<HabitWithMetadata>;
                   return (
                     <DraggableHabitRow
                       key={habit.id}
