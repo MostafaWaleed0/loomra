@@ -17,9 +17,9 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
     <Card>
       <CardContent className="flex items-center justify-between">
         <div>
-          <CardTitle>
-            {title}
-            <span>{value}</span>
+          <CardTitle className="flex items-center justify-between gap-1 w-fit">
+            <span>{title}</span>
+            <span className="text-muted-foreground font-medium">{value}</span>
           </CardTitle>
           <CardDescription>{subtitle && <p className="mt-1">{subtitle}</p>}</CardDescription>
         </div>
