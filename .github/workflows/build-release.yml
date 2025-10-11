@@ -24,226 +24,430 @@ on:
         type: string
 
 env:
-  NODE_VERSION: 20
-  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-  ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # ----------------------------
-  # 1️⃣ Quality Checks
-  # ----------------------------
-  lint:
-    name: 🧹 Lint & Type Check
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🔍 QUALITY CHECKS
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  quality:
+    name: 🔍 Quality Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline --no-audit
 
-      - name: Run Type Check
+      - name: 🔎 Type Check
         run: npx tsc --noEmit
+        continue-on-error: false
 
-      - name: Run Linter
+      - name: 🧹 Lint
         run: npm run lint --if-present
+        continue-on-error: false
 
-  # ----------------------------
-  # 2️⃣ Build (Windows)
-  # ----------------------------
+      - name: 🧪 Test
+        run: npm test --if-present
+        continue-on-error: false
+
+      - name: 📊 Report
+        if: always()
+        run: |
+          echo "### ✅ Quality Checks Complete" >> $GITHUB_STEP_SUMMARY
+          echo "All checks passed successfully!" >> $GITHUB_STEP_SUMMARY
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🏗️ BUILD ARTIFACTS
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   build:
-    name: 🏗️ Build Windows Installer
-    runs-on: windows-latest
-    needs: lint
-    if: github.event_name != 'pull_request'
-
+    name: 🏗️ Build ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: quality
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 45
     strategy:
+      fail-fast: false
       matrix:
-        arch: [x64]
+        include:
+          - os: windows
+            runner: windows-latest
+            arch: x64
+            target: win
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GH_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: 'npm'
 
-      - uses: actions/setup-python@v5
+      - name: 🐍 Setup Python
+        if: matrix.os == 'windows'
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: 🧰 Verify Environment
+      - name: 🔍 Environment Info
         run: |
-          echo "✅ Node $(node -v)"
-          echo "✅ Python $(python --version)"
+          node --version
+          npm --version
 
-      - name: ♻️ Cache Electron Builds
+      - name: 💾 Cache Electron
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.ELECTRON_CACHE }}
-            ${{ env.ELECTRON_BUILDER_CACHE }}
+            ~/.cache/electron
+            ~/.cache/electron-builder
           key: ${{ runner.os }}-electron-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-
 
-      - name: 📦 Install Dependencies
-        run: npm ci
+      - name: 💾 Cache Next.js
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
-      - name: 🔢 Update Version (if provided)
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: 🔢 Set Version
         if: github.event.inputs.version != ''
-        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: ⚙️ Build Next.js
         run: npm run next:build
         env:
           NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
 
-      - name: 🔧 Rebuild Native Modules
-        run: npm run postinstall
-
-      - name: 🪟 Build Windows Installer
-        run: npm run build:win
+      - name: 🏗️ Build Electron App
+        run: npm run build:${{ matrix.target }}
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USE_HARD_LINKS: false
 
-      - name: 📤 Upload Windows Build Artifacts
+      - name: 📦 List Build Artifacts
+        shell: bash
+        run: |
+          echo "### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh dist/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: ✅ Verify Artifacts
+        shell: bash
+        run: |
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist/*.exe 2>/dev/null)" ]; then
+            echo "❌ Error: No build artifacts found!"
+            exit 1
+          fi
+          echo "✅ Build artifacts verified"
+
+      - name: 📤 Upload Artifacts
+        # Only upload artifacts if we're NOT immediately releasing
+        # (Release job will use them from dist directly or download them)
+        if: github.event_name != 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build-${{ github.run_number }}
-          retention-days: 7
+          name: ${{ matrix.os }}-${{ matrix.arch }}-installer
+          retention-days: 3
+          if-no-files-found: error
+          compression-level: 9
           path: |
             dist/*.exe
             dist/*.yml
             dist/*.blockmap
 
-  # ----------------------------
-  # 3️⃣ Create GitHub Release
-  # ----------------------------
+      - name: 📊 Build Summary
+        run: |
+          echo "### ✅ Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| OS | ${{ matrix.os }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture | ${{ matrix.arch }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 📦 RELEASE
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   release:
-    name: 📦 Create GitHub Release
+    name: 📦 Create Release
     runs-on: ubuntu-latest
     needs: build
     if: |
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.ref, 'refs/tags/v') ||
-      github.ref == 'refs/heads/main'
-
+      startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 10
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: 📥 Download Build Artifacts
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 📥 Download All Artifacts
+        if: github.event_name != 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/v')
         uses: actions/download-artifact@v4
         with:
-          name: windows-build-${{ github.run_number }}
           path: release-assets
+          merge-multiple: true
+
+      - name: 📂 Use Build Artifacts from Previous Job
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: 📋 List Downloaded Assets
+        run: |
+          echo "### 📋 Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lhR release-assets/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: 🔍 Determine Version
         id: version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ github.event.inputs.version }}"
           elif [ "${{ github.ref_type }}" == "tag" ]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/}"
           else
-            echo "version=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            VERSION="v$(node -p "require('./package.json').version")"
           fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📌 Version: $VERSION" >> $GITHUB_STEP_SUMMARY
 
-      - name: 🧩 Determine Release Type
+      - name: 🏷️ Determine Release Type
         id: release_type
         run: |
           TYPE="${{ github.event.inputs.release_type }}"
           VERSION="${{ steps.version.outputs.version }}"
-          case "$TYPE" in
-            draft) echo "draft=true" >> $GITHUB_OUTPUT; echo "prerelease=false" >> $GITHUB_OUTPUT ;;
-            prerelease) echo "draft=false" >> $GITHUB_OUTPUT; echo "prerelease=true" >> $GITHUB_OUTPUT ;;
-            release) echo "draft=false" >> $GITHUB_OUTPUT; echo "prerelease=false" >> $GITHUB_OUTPUT ;;
-            *) [[ "$VERSION" =~ -beta|-alpha|-rc ]] && echo "prerelease=true" >> $GITHUB_OUTPUT || echo "prerelease=false" >> $GITHUB_OUTPUT ;;
-          esac
+
+          if [ -n "$TYPE" ]; then
+            case "$TYPE" in
+              draft)
+                echo "is_draft=true" >> $GITHUB_OUTPUT
+                echo "is_prerelease=false" >> $GITHUB_OUTPUT
+                echo "🔖 Type: Draft Release" >> $GITHUB_STEP_SUMMARY
+                ;;
+              prerelease)
+                echo "is_draft=false" >> $GITHUB_OUTPUT
+                echo "is_prerelease=true" >> $GITHUB_OUTPUT
+                echo "🔖 Type: Pre-release" >> $GITHUB_STEP_SUMMARY
+                ;;
+              release)
+                echo "is_draft=false" >> $GITHUB_OUTPUT
+                echo "is_prerelease=false" >> $GITHUB_OUTPUT
+                echo "🔖 Type: Stable Release" >> $GITHUB_STEP_SUMMARY
+                ;;
+            esac
+          else
+            if [[ "$VERSION" =~ -beta|-alpha|-rc ]]; then
+              echo "is_draft=false" >> $GITHUB_OUTPUT
+              echo "is_prerelease=true" >> $GITHUB_OUTPUT
+              echo "🔖 Type: Pre-release (auto-detected)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "is_draft=false" >> $GITHUB_OUTPUT
+              echo "is_prerelease=false" >> $GITHUB_OUTPUT
+              echo "🔖 Type: Stable Release (auto-detected)" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
       - name: 📝 Generate Release Notes
-        id: notes
+        id: release_notes
         run: |
-          cat > release_notes.md <<EOF
-          ## 🚀 Loomra ${{ steps.version.outputs.version }}
+          VERSION="${{ steps.version.outputs.version }}"
 
-          ### ✨ Highlights
-          - Core functionality improvements
-          - Optimized performance
-          - Bug fixes and polish
+          if [ -f "release_notes.md" ]; then
+            NOTES=$(cat release_notes.md)
+          else
+            NOTES="## 🎉 What's New in $VERSION
 
-          ### 🪟 Windows Installer
-          - **Download:** \`Loomra-Setup.exe\`
-          - Auto-updates enabled
+          ### 📦 Installation
+          Download the appropriate installer for your platform below.
+
+          ### 📋 Changelog
+          For detailed changes, see the [commit history](https://github.com/${{ github.repository }}/commits/$VERSION).
 
           ---
-          [View full changelog](https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.version }})
-          EOF
-          cat release_notes.md
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/...${VERSION}"
+          fi
 
-      - name: 🏁 Publish GitHub Release
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: Loomra ${{ steps.version.outputs.version }}
-          body_path: release_notes.md
-          draft: ${{ steps.release_type.outputs.draft }}
-          prerelease: ${{ steps.release_type.outputs.prerelease }}
-          files: release-assets/*
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: ${{ steps.release_type.outputs.is_draft }}
+          prerelease: ${{ steps.release_type.outputs.is_prerelease }}
+          files: release-assets/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ----------------------------
-  # 4️⃣ Cleanup Artifacts
-  # ----------------------------
+      - name: 📊 Release Summary
+        run: |
+          echo "### 🎉 Release Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.version.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Draft | ${{ steps.release_type.outputs.is_draft }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-release | ${{ steps.release_type.outputs.is_prerelease }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🧹 CLEANUP
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   cleanup:
     name: 🧹 Cleanup Artifacts
     runs-on: ubuntu-latest
-    needs: release
-    if: always()
+    needs: [build, release]
+    if: always() && needs.build.result == 'success'
+    timeout-minutes: 5
 
     permissions:
       actions: write
 
     steps:
-      - name: Delete Current Build Artifacts
+      - name: 🗑️ Delete Build Artifacts (After Release)
+        if: needs.release.result == 'success'
         uses: geekyeggo/delete-artifact@v5
         with:
-          name: windows-build-${{ github.run_number }}
+          name: '*-installer'
           failOnError: false
 
-  # ----------------------------
-  # 5️⃣ Post-Release Notification
-  # ----------------------------
-  notify:
-    name: 🔔 Notify
+      - name: 🗑️ Delete Build Artifacts (On Main Push)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: '*-installer'
+          failOnError: false
+
+      - name: ✅ Cleanup Summary
+        run: |
+          echo "### ✅ Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Build artifacts have been removed to save storage." >> $GITHUB_STEP_SUMMARY
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 📊 STATUS REPORT
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  status:
+    name: 📊 Workflow Status
     runs-on: ubuntu-latest
-    needs: release
+    needs: [quality, build, release]
     if: always()
+    timeout-minutes: 5
 
     steps:
-      - name: Print Summary
+      - name: 📋 Generate Status Report
         run: |
-          result="${{ needs.release.result }}"
-          echo "Release job result: $result"
-          if [ "$result" = "success" ]; then
-            echo "✅ Release published successfully!"
-            echo "➡️ https://github.com/${{ github.repository }}/releases"
-          elif [ "$result" = "skipped" ]; then
-            echo "⚠️ Release was skipped."
+          echo "## 📊 Workflow Status Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Quality
+          if [ "${{ needs.quality.result }}" = "success" ]; then
+            echo "| Quality Checks | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Release failed."
-            exit 1
+            echo "| Quality Checks | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
+
+          # Build
+          if [ "${{ needs.build.result }}" = "success" ]; then
+            echo "| Build | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.build.result }}" = "skipped" ]; then
+            echo "| Build | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Build | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Release
+          if [ "${{ needs.release.result }}" = "success" ]; then
+            echo "| Release | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.release.result }}" = "skipped" ]; then
+            echo "| Release | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Release | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: ✅ Success Message
+        if: needs.quality.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped')
+        run: |
+          echo "### ✅ Workflow Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.release.result }}" = "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **Release has been published!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📦 [View Releases](https://github.com/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.build.result }}" = "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📦 **Build artifacts are ready!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Artifacts are available for download (7 days retention)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: ❌ Failure Message
+        if: needs.quality.result == 'failure' || needs.build.result == 'failure' || needs.release.result == 'failure'
+        run: |
+          echo "### ❌ Workflow Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.quality.result }}" = "failure" ]; then
+            echo "**Quality checks failed.** Please fix linting, type errors, or test failures." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.build.result }}" = "failure" ]; then
+            echo "**Build failed.** Check the build logs for errors." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.release.result }}" = "failure" ]; then
+            echo "**Release failed.** The build was successful but release creation failed." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit 1

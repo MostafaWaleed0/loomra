@@ -1,0 +1,53 @@
+name: 🚨 Emergency Artifact Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "DELETE ALL" to confirm'
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  emergency-cleanup:
+    name: 🗑️ Delete ALL Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: ✋ Confirmation Check
+        if: github.event.inputs.confirm != 'DELETE ALL'
+        run: |
+          echo "❌ Confirmation failed. You must type 'DELETE ALL' exactly." >> $GITHUB_STEP_SUMMARY
+          exit 1
+
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚨 Delete ALL Build Artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: '*'
+          failOnError: false
+
+      - name: 🧹 Delete Artifacts Older Than 0 Days
+        uses: c-hive/gha-remove-artifacts@v1
+        with:
+          age: '0 days'
+          skip-recent: 0
+          skip-tags: false
+
+      - name: ✅ Emergency Cleanup Complete
+        run: |
+          echo "### 🚨 Emergency Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All artifacts have been deleted" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔄 Your storage quota should be recalculated within 6-12 hours" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Check storage usage at:" >> $GITHUB_STEP_SUMMARY
+          echo "https://github.com/${{ github.repository }}/settings/actions" >> $GITHUB_STEP_SUMMARY

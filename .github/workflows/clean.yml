@@ -1,39 +1,44 @@
 name: 🧹 Cleanup Old Artifacts
 
 on:
-  schedule:
-    # Run daily at 1 AM UTC
-    - cron: '0 1 * * *'
   workflow_dispatch:
+    inputs:
+      days:
+        description: 'Delete artifacts older than (days)'
+        required: true
+        default: '7'
+        type: string
+  schedule:
+    # Run weekly on Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   cleanup:
-    name: 🗑️ Delete Old Build Artifacts
+    name: 🗑️ Delete Old Artifacts
     runs-on: ubuntu-latest
-
-    permissions:
-      actions: write
-      contents: read
+    timeout-minutes: 10
 
     steps:
-      - name: Delete artifacts older than 7 days
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🧹 Delete Old Artifacts
         uses: c-hive/gha-remove-artifacts@v1
         with:
-          age: '7 days'
+          age: '${{ github.event.inputs.days || 7 }} days'
           skip-recent: 3
           skip-tags: true
 
-      - name: Delete specific old artifacts
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: |
-            windows-build
-            windows-build-*
-          useGlob: true
-          failOnError: false
-
-      - name: Print Summary
+      - name: 📊 Cleanup Summary
         run: |
-          echo "✅ Cleanup completed!"
-          echo "📊 Artifacts older than 7 days have been removed"
-          echo "🔒 Last 3 artifacts preserved"
+          echo "### 🧹 Artifact Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deleted artifacts older than ${{ github.event.inputs.days || 7 }} days" >> $GITHUB_STEP_SUMMARY
+          echo "Kept the 3 most recent artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Tip:** Check your storage usage at:" >> $GITHUB_STEP_SUMMARY
+          echo "https://github.com/${{ github.repository }}/settings/actions" >> $GITHUB_STEP_SUMMARY
