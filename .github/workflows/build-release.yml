@@ -1,7 +1,6 @@
 name: 🚀 Build & Release
 
 on:
-  # Trigger on version tags (v1.2.3), main branch pushes, and PRs
   push:
     branches:
       - '**'
@@ -60,7 +59,7 @@ jobs:
     name: 🏗️ Build Windows Installer
     runs-on: windows-latest
     needs: lint
-    if: github.event_name != 'pull_request' # skip building for PRs
+    if: github.event_name != 'pull_request'
 
     strategy:
       matrix:
@@ -120,7 +119,8 @@ jobs:
       - name: 📤 Upload Windows Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
+          name: windows-build-${{ github.run_number }}
+          retention-days: 7
           path: |
             dist/*.exe
             dist/*.yml
@@ -147,7 +147,7 @@ jobs:
       - name: 📥 Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windows-build
+          name: windows-build-${{ github.run_number }}
           path: release-assets
 
       - name: 🔍 Determine Version
@@ -206,7 +206,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ----------------------------
-  # 4️⃣ Post-Release Notification
+  # 4️⃣ Cleanup Artifacts
+  # ----------------------------
+  cleanup:
+    name: 🧹 Cleanup Artifacts
+    runs-on: ubuntu-latest
+    needs: release
+    if: always()
+
+    permissions:
+      actions: write
+
+    steps:
+      - name: Delete Current Build Artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: windows-build-${{ github.run_number }}
+          failOnError: false
+
+  # ----------------------------
+  # 5️⃣ Post-Release Notification
   # ----------------------------
   notify:
     name: 🔔 Notify

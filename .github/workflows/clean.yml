@@ -1,18 +1,39 @@
-name: Remove old artifacts
+name: 🧹 Cleanup Old Artifacts
 
 on:
   schedule:
+    # Run daily at 1 AM UTC
     - cron: '0 1 * * *'
   workflow_dispatch:
 
 jobs:
   cleanup:
-    name: 🧹 Cleanup Old Artifacts
+    name: 🗑️ Delete Old Build Artifacts
     runs-on: ubuntu-latest
-    if: always()
+
+    permissions:
+      actions: write
+      contents: read
+
     steps:
-      - name: Delete old artifacts
+      - name: Delete artifacts older than 7 days
+        uses: c-hive/gha-remove-artifacts@v1
+        with:
+          age: '7 days'
+          skip-recent: 3
+          skip-tags: true
+
+      - name: Delete specific old artifacts
         uses: geekyeggo/delete-artifact@v5
         with:
-          name: windows-build
+          name: |
+            windows-build
+            windows-build-*
+          useGlob: true
           failOnError: false
+
+      - name: Print Summary
+        run: |
+          echo "✅ Cleanup completed!"
+          echo "📊 Artifacts older than 7 days have been removed"
+          echo "🔒 Last 3 artifacts preserved"
