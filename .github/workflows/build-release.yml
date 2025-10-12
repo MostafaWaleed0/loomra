@@ -39,8 +39,6 @@ jobs:
     name: 🔍 Quality & Security
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    outputs:
-      cache-hit: ${{ steps.cache-deps.outputs.cache-hit }}
 
     steps:
       - name: 📥 Checkout
@@ -96,7 +94,7 @@ jobs:
   # 🏗️ BUILD WINDOWS
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   build:
-    name: 🏗️ Build Windows ${{ matrix.arch }}
+    name: 🏗️ Build Windows
     runs-on: windows-latest
     needs: quality
     if: |
@@ -104,11 +102,6 @@ jobs:
       github.ref == 'refs/heads/main' ||
       startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x64, arm64]
-
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
@@ -131,7 +124,7 @@ jobs:
           node --version
           npm --version
           echo "OS: Windows" >> $env:GITHUB_STEP_SUMMARY
-          echo "Architecture: ${{ matrix.arch }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "Architecture: x64" >> $env:GITHUB_STEP_SUMMARY
 
       - name: 💾 Cache Electron
         uses: actions/cache@v4
@@ -165,13 +158,12 @@ jobs:
           NODE_ENV: production
           NEXT_TELEMETRY_DISABLED: 1
 
-      - name: 🏗️ Build Electron (Windows ${{ matrix.arch }})
+      - name: 🏗️ Build Electron (Windows)
         run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           USE_HARD_LINKS: false
           ELECTRON_BUILDER_COMPRESSION_LEVEL: 9
-          ARCH: ${{ matrix.arch }}
 
       - name: 🔍 Verify Build Artifacts
         shell: bash
@@ -197,13 +189,13 @@ jobs:
         shell: bash
         run: |
           cd dist
-          sha256sum *.exe > checksums-${{ matrix.arch }}.txt
-          cat checksums-${{ matrix.arch }}.txt
+          sha256sum *.exe > checksums.txt
+          cat checksums.txt
 
       - name: 📤 Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ matrix.arch }}
+          name: windows-installer
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: error
           compression-level: 9
@@ -216,8 +208,7 @@ jobs:
           echo "" >> $env:GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $env:GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $env:GITHUB_STEP_SUMMARY
-          echo "| Platform | Windows |" >> $env:GITHUB_STEP_SUMMARY
-          echo "| Architecture | ${{ matrix.arch }} |" >> $env:GITHUB_STEP_SUMMARY
+          echo "| Platform | Windows x64 |" >> $env:GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.sha }}\` |" >> $env:GITHUB_STEP_SUMMARY
           echo "| Branch | ${{ github.ref_name }} |" >> $env:GITHUB_STEP_SUMMARY
 
@@ -250,18 +241,15 @@ jobs:
       - name: 📥 Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
+          name: windows-installer
           path: release-assets
-          merge-multiple: false
 
-      - name: 📋 Organize Release Assets
+      - name: 📋 List Release Assets
         shell: bash
         run: |
-          mkdir -p final-assets
-          find release-assets -type f -name "*.exe" -exec cp {} final-assets/ \;
-
           echo "### 📦 Release Assets" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          ls -lh final-assets/ >> $GITHUB_STEP_SUMMARY
+          ls -lh release-assets/ >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: 🔍 Determine Version
@@ -326,18 +314,13 @@ jobs:
             NOTES="## 🎉 Release $VERSION
 
           ### 📦 Installation
-          Download the appropriate Windows installer:
-          - **x64**: For 64-bit Intel/AMD processors
-          - **ARM64**: For ARM-based Windows devices
-
-          ### 🔐 Verification
-          SHA-256 checksums are included for each architecture
+          Download the Windows installer below and run it to install Loomra.
 
           ### 📋 Changes
           See the [full changelog](https://github.com/${{ github.repository }}/compare/...$VERSION) for details.
 
           ---
-          Built with ❤️ by the team"
+          Built with ❤️ by the Loomra team"
           fi
 
           {
@@ -354,7 +337,7 @@ jobs:
           body: ${{ steps.notes.outputs.notes }}
           draft: ${{ steps.config.outputs.is_draft }}
           prerelease: ${{ steps.config.outputs.is_prerelease }}
-          files: final-assets/**/*
+          files: release-assets/*
           generate_release_notes: true
           fail_on_unmatched_files: true
           make_latest: ${{ steps.config.outputs.is_prerelease == 'false' }}
@@ -390,7 +373,7 @@ jobs:
       - name: 🗑️ Delete Build Artifacts
         uses: geekyeggo/delete-artifact@v5
         with:
-          name: windows-*
+          name: windows-installer
           failOnError: false
 
       - name: ✅ Cleanup Complete
