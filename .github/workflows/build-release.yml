@@ -150,7 +150,7 @@ jobs:
       - name: 🏗️ Build Electron App
         run: npm run build:${{ matrix.target }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           USE_HARD_LINKS: false
 
       - name: 📦 List Build Artifacts
@@ -239,7 +239,11 @@ jobs:
         run: |
           echo "### 📋 Release Assets" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          ls -lhR release-assets/ >> $GITHUB_STEP_SUMMARY
+          if [ -d "release-assets" ]; then
+            ls -lhR release-assets/ >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No release assets directory found" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: 🔍 Determine Version
@@ -327,7 +331,7 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: 📊 Release Summary
         run: |
