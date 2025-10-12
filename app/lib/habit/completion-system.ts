@@ -229,7 +229,7 @@ export class HabitCompletionManager {
 
     return {
       streak: currentStreak,
-      bestStreak: Math.max(habit.bestStreak || 0, bestStreak),
+      bestStreak: bestStreak,
       totalCompletions,
       lastCompleted
     };

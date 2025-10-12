@@ -10,7 +10,6 @@ import type {
   TaskWithStats,
   UseGoalsReturn
 } from '../types';
-import { useLocalState } from './use-local-state';
 
 export function useGoals(
   tasks: TaskWithStats[] = [],
@@ -18,7 +17,7 @@ export function useGoals(
   refreshHabits?: (() => Promise<void>) | null
 ): UseGoalsReturn {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [selectedGoalId, setSelectedGoalId] = useLocalState<string | null>('selected-goal-id', null);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 

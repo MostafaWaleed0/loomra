@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import {
   Sidebar,
   SidebarContent,
@@ -9,22 +8,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar';
-import { CheckCircle2, Moon, Target, Zap } from 'lucide-react';
+import { CheckCircle2, Home, Moon, Target, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
-export function LeftSidebar({ activeView, setActiveView, stats, ...props }: any) {
+export function LeftSidebar({ activeView, setActiveView, ...props }: any) {
   const { theme, setTheme } = useTheme();
   const menuItems = [
-    // { id: 'dashboard', label: 'Dashboard', icon: Home, count: null },
-    { id: 'goals', label: 'Goals', icon: Target, count: stats[2].activeGoals },
+    { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'goals', label: 'Goals', icon: Target },
     {
       id: 'tasks',
       label: 'Tasks',
-      icon: CheckCircle2,
-      count: stats[1].pendingTasks
+      icon: CheckCircle2
     },
-    { id: 'habits', label: 'Habits', icon: Zap, count: stats[0].total }
-    // { id: 'analytics', label: 'Analytics', icon: BarChart3, count: null }
+    { id: 'habits', label: 'Habits', icon: Zap }
   ];
 
   const toggleTheme = () => {
@@ -76,7 +73,6 @@ export function LeftSidebar({ activeView, setActiveView, stats, ...props }: any)
                   <SidebarMenuButton onClick={() => setActiveView(item.id)} isActive={isActive}>
                     <Icon className="!size-5 mx-auto" />
                     <span className="flex-1">{item.label}</span>
-                    <Badge className="size-5 rounded-full px-1 font-mono tabular-nums">{item.count}</Badge>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               );

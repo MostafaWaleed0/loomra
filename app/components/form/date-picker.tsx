@@ -114,6 +114,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
               onSelect={onSelect}
               disabled={disabled}
               captionLayout={captionLayout}
+              toYear={new Date().getFullYear() + 5}
             />
           </CardContent>
         </Card>

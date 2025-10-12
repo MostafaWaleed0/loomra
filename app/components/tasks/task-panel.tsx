@@ -16,11 +16,26 @@ import { Input } from '@/components/ui/input';
 import { ColorUtils, DateUtils, TASK_CONFIG } from '@/lib/core';
 import type { TaskPriority, TaskUpdates, TaskWithStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, CalendarIcon, CheckCircle2, Circle, Edit2, Flag, ListTodo, MoreVertical, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarIcon,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Edit2,
+  Filter,
+  Flag,
+  ListTodo,
+  MoreVertical,
+  Plus,
+  Trash2
+} from 'lucide-react';
 import { useState } from 'react';
 import { DatePicker } from '../form/date-picker';
 import { Badge } from '../ui/badge';
-import { TaskInput } from './task-input';
+
+export type TaskFilter = 'all' | 'active' | 'completed';
+export type TimeFilter = 'all' | 'today' | 'week' | 'overdue' | 'no-date';
 
 interface PriorityConfig {
   value: TaskPriority;
@@ -57,6 +72,7 @@ interface TaskEditRowProps {
   onSave: () => void;
   onCancel: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  mode?: 'create' | 'edit';
 }
 
 function TaskEditRow({
@@ -68,23 +84,24 @@ function TaskEditRow({
   onDueDateChange,
   onSave,
   onCancel,
-  onKeyDown
+  onKeyDown,
+  mode = 'edit'
 }: TaskEditRowProps) {
   return (
     <div className="flex w-full items-center gap-2">
       <Input
         value={editingTitle}
         onChange={(e) => onTitleChange(e.target.value)}
-        placeholder="Task title"
+        placeholder={mode === 'create' ? 'Add a new task...' : 'Task title'}
         onKeyDown={onKeyDown}
         autoFocus
         className="flex-1"
       />
 
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="h-10 min-w-[80px]">
-            <Flag className="size-4 mr-1" />
+            <Flag className={cn('size-4 mr-1', getPriorityConfig(editingPriority).color)} />
             {getPriorityConfig(editingPriority).label}
           </Button>
         </DropdownMenuTrigger>
@@ -104,11 +121,17 @@ function TaskEditRow({
 
       <DatePicker date={editingDueDate} onSelect={onDueDateChange} mode="icon" side="left" />
 
-      <Button variant="ghost" size="icon" onClick={onSave} aria-label="Save task" className="size-10">
-        <CheckCircle2 className="size-5 text-green-600" />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onSave}
+        aria-label={mode === 'create' ? 'Add task' : 'Save task'}
+        className="size-10"
+      >
+        {mode === 'create' ? <Plus className="size-5 text-primary" /> : <CheckCircle2 className="size-5 text-green-600" />}
       </Button>
 
-      <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel edit" className="size-10">
+      <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel" className="size-10">
         <Circle className="size-5 text-muted-foreground" />
       </Button>
     </div>
@@ -195,33 +218,139 @@ function TaskDisplayRow({ task, onToggle, onEdit, onDelete, onPriorityChange }: 
 function EmptyTaskState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <ListTodo className="size-12 text-muted-foreground/50 mb-3" />
-      <p className="text-sm text-muted-foreground font-medium">No tasks yet</p>
-      <p className="text-xs text-muted-foreground mt-1">Add your first task above to get started!</p>
+      <div className="rounded-full bg-primary/10 p-4 mb-4">
+        <ListTodo className="size-12 text-primary" />
+      </div>
+      <p className="text-base text-foreground font-semibold mb-1">No tasks yet</p>
+      <p className="text-sm text-muted-foreground">Click "Add Task" above to create your first task</p>
     </div>
   );
 }
 
 function sortTasks(tasks: TaskWithStats[]): TaskWithStats[] {
   return [...tasks].sort((a, b) => {
-    const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
-    const aPriority = priorityOrder[a.priority || 'medium'];
-    const bPriority = priorityOrder[b.priority || 'medium'];
+    if (a.done !== b.done) {
+      return a.done ? 1 : -1;
+    }
 
-    if (aPriority !== bPriority) return bPriority - aPriority;
-    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (!a.done) {
+      if (a.isOverdue !== b.isOverdue) {
+        return a.isOverdue ? -1 : 1;
+      }
+
+      if (a.dueDate && b.dueDate) {
+        const comparison = DateUtils.calculateDaysBetween(a.dueDate, b.dueDate);
+        if (comparison !== 0) return comparison;
+      }
+
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
+
+      const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
+      const priorityDiff = priorityOrder[b.priority || 'medium'] - priorityOrder[a.priority || 'medium'];
+      if (priorityDiff !== 0) return priorityDiff;
+    }
+
+    if (a.done && a.updatedAt && b.updatedAt) {
+      return DateUtils.calculateDaysBetween(b.updatedAt, a.updatedAt);
+    }
+
+    if (a.createdAt && b.createdAt) {
+      return DateUtils.calculateDaysBetween(b.createdAt, a.createdAt);
+    }
+
     return 0;
   });
+}
+
+interface QuickAddTaskProps {
+  onCreate: (title: string, dueDate?: string, priority?: TaskPriority) => void;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+function QuickAddTask({ onCreate, isExpanded, onToggle }: QuickAddTaskProps) {
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [priority, setPriority] = useState<TaskPriority>('medium');
+
+  function handleCreate() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    onCreate(trimmedTitle, dueDate?.toISOString(), priority);
+
+    // Reset form
+    setTitle('');
+    setDueDate(undefined);
+    setPriority('medium');
+    onToggle(); // Collapse after creation
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreate();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setTitle('');
+      setDueDate(undefined);
+      setPriority('medium');
+      onToggle();
+    }
+  }
+
+  function handleCancel() {
+    setTitle('');
+    setDueDate(undefined);
+    setPriority('medium');
+    onToggle();
+  }
+
+  if (!isExpanded) {
+    return (
+      <Button onClick={onToggle} className="w-full justify-start gap-2 h-11 text-base" variant="outline">
+        <Plus className="size-5" />
+        Add Task
+      </Button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-3">
+      <TaskEditRow
+        editingTitle={title}
+        editingPriority={priority}
+        editingDueDate={dueDate}
+        onTitleChange={setTitle}
+        onPriorityChange={setPriority}
+        onDueDateChange={setDueDate}
+        onSave={handleCreate}
+        onCancel={handleCancel}
+        onKeyDown={handleKeyDown}
+        mode="create"
+      />
+      <p className="text-xs text-muted-foreground mt-2 ml-1">
+        Press <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Enter</kbd> to add or{' '}
+        <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Esc</kbd> to cancel
+      </p>
+    </div>
+  );
 }
 
 interface TaskPanelProps {
   tasks: TaskWithStats[];
   selectedGoalId: string | null;
-  onCreateTask: (title: string, goalId?: string, dueDate?: string) => void;
+  onCreateTask: (title: string, goalId?: string, dueDate?: string, priority?: TaskPriority) => void;
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (taskId: string, updates: TaskUpdates) => void;
   getTasksByGoal?: (goalId: string | null) => TaskWithStats[] | undefined;
+  showFilter?: boolean;
+  taskFilter?: TaskFilter;
+  timeFilter?: TimeFilter;
+  onTaskFilterChange?: (filter: TaskFilter) => void;
+  onTimeFilterChange?: (filter: TimeFilter) => void;
 }
 
 export function TaskPanel({
@@ -231,12 +360,42 @@ export function TaskPanel({
   onToggleTask,
   onDeleteTask,
   onEditTask,
-  getTasksByGoal
+  getTasksByGoal,
+  showFilter = true,
+  taskFilter: externalTaskFilter,
+  timeFilter: externalTimeFilter,
+  onTaskFilterChange,
+  onTimeFilterChange
 }: TaskPanelProps) {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
   const [editingDueDate, setEditingDueDate] = useState<Date | undefined>(undefined);
   const [editingPriority, setEditingPriority] = useState<TaskPriority>('medium');
+  const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
+
+  // Internal state (fallback if not controlled)
+  const [internalTaskFilter, setInternalTaskFilter] = useState<TaskFilter>('all');
+  const [internalTimeFilter, setInternalTimeFilter] = useState<TimeFilter>('all');
+
+  // Use external state if provided, otherwise use internal state
+  const taskFilter = externalTaskFilter !== undefined ? externalTaskFilter : internalTaskFilter;
+  const timeFilter = externalTimeFilter !== undefined ? externalTimeFilter : internalTimeFilter;
+
+  const handleTaskFilterChange = (filter: TaskFilter) => {
+    if (onTaskFilterChange) {
+      onTaskFilterChange(filter);
+    } else {
+      setInternalTaskFilter(filter);
+    }
+  };
+
+  const handleTimeFilterChange = (filter: TimeFilter) => {
+    if (onTimeFilterChange) {
+      onTimeFilterChange(filter);
+    } else {
+      setInternalTimeFilter(filter);
+    }
+  };
 
   function handleStartEdit(task: TaskWithStats): void {
     setEditingTaskId(task.id);
@@ -280,62 +439,211 @@ export function TaskPanel({
     }
   }
 
+  function handleQuickAdd(title: string, dueDate?: string, priority?: TaskPriority): void {
+    onCreateTask(title, selectedGoalId ?? undefined, dueDate, priority);
+  }
+
+  function isTaskInTimeFilter(task: TaskWithStats, filter: TimeFilter): boolean {
+    if (filter === 'all') return true;
+    if (filter === 'no-date') return !task.dueDate;
+    if (!task.dueDate) return false;
+
+    const todayStr = DateUtils.getCurrentDateString();
+    const taskDateStr = DateUtils.formatDate(new Date(task.dueDate));
+
+    switch (filter) {
+      case 'today':
+        return taskDateStr === todayStr;
+      case 'week': {
+        const weekEnd = DateUtils.addDays(todayStr, 7);
+        return !DateUtils.isDateBefore(taskDateStr, todayStr) && DateUtils.isDateBefore(taskDateStr, weekEnd);
+      }
+      case 'overdue':
+        return DateUtils.isDateBefore(taskDateStr, todayStr) && !task.done;
+      default:
+        return true;
+    }
+  }
+
   const displayTasks = getTasksByGoal?.(selectedGoalId) || tasks;
-  const sortedTasks = sortTasks(displayTasks);
+
+  // Apply filters
+  const filteredTasks = displayTasks.filter((task) => {
+    // Status filter
+    if (taskFilter === 'active' && task.done) return false;
+    if (taskFilter === 'completed' && !task.done) return false;
+
+    // Time filter
+    return isTaskInTimeFilter(task, timeFilter);
+  });
+
+  const sortedTasks = sortTasks(filteredTasks);
+  const activeTasks = displayTasks.filter((t) => !t.done).length;
+  const completedTasks = displayTasks.filter((t) => t.done).length;
+
+  // Time filter counts
+  const todayTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'today')).length;
+  const weekTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'week')).length;
+  const overdueTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'overdue')).length;
+  const noDateTasks = displayTasks.filter((t) => !t.dueDate).length;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <ListTodo className="size-5 text-primary" />
-          Tasks
-          {displayTasks.length > 0 && (
-            <span className="text-sm font-normal text-muted-foreground">
-              ({displayTasks.filter((t) => t.done).length}/{displayTasks.length})
-            </span>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-2xl">
+            <ListTodo className="size-6 text-primary" />
+            Tasks
+            {displayTasks.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({completedTasks}/{displayTasks.length})
+              </span>
+            )}
+          </CardTitle>
+
+          {showFilter && displayTasks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Clock className="size-4" />
+                    {timeFilter === 'all' && 'All Time'}
+                    {timeFilter === 'today' && 'Today'}
+                    {timeFilter === 'week' && 'This Week'}
+                    {timeFilter === 'overdue' && 'Overdue'}
+                    {timeFilter === 'no-date' && 'No Date'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuLabel>Filter by Time</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={timeFilter}
+                    onValueChange={(value) => handleTimeFilterChange(value as TimeFilter)}
+                  >
+                    <DropdownMenuRadioItem value="all">
+                      All Time
+                      <span className="ml-auto text-xs text-muted-foreground">{displayTasks.length}</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="today">
+                      Today
+                      <span className="ml-auto text-xs text-muted-foreground">{todayTasks}</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="week">
+                      This Week
+                      <span className="ml-auto text-xs text-muted-foreground">{weekTasks}</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="overdue">
+                      Overdue
+                      <span className="ml-auto text-xs text-muted-foreground">{overdueTasks}</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="no-date">
+                      No Date
+                      <span className="ml-auto text-xs text-muted-foreground">{noDateTasks}</span>
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Filter className="size-4" />
+                    {taskFilter === 'all' && 'All'}
+                    {taskFilter === 'active' && 'Active'}
+                    {taskFilter === 'completed' && 'Completed'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuLabel>Filter Tasks</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={taskFilter}
+                    onValueChange={(value) => handleTaskFilterChange(value as TaskFilter)}
+                  >
+                    <DropdownMenuRadioItem value="all">
+                      All Tasks
+                      <span className="ml-auto text-xs text-muted-foreground">{displayTasks.length}</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="active">
+                      Active
+                      <span className="ml-auto text-xs text-muted-foreground">{activeTasks}</span>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="completed">
+                      Completed
+                      <span className="ml-auto text-xs text-muted-foreground">{completedTasks}</span>
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           )}
-        </CardTitle>
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-5">
-        <TaskInput onCreate={(title, dueDate) => onCreateTask(title, selectedGoalId ?? undefined, dueDate)} />
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar max-h-96">
-          {sortedTasks.map((task) => (
-            <div
-              key={task.id}
-              className={cn(
-                'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
-                task.done
-                  ? 'bg-muted/20 opacity-75'
-                  : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
-              )}
-            >
-              {editingTaskId === task.id ? (
-                <TaskEditRow
-                  editingTitle={editingTitle}
-                  editingPriority={editingPriority}
-                  editingDueDate={editingDueDate}
-                  onTitleChange={setEditingTitle}
-                  onPriorityChange={setEditingPriority}
-                  onDueDateChange={setEditingDueDate}
-                  onSave={() => handleSaveEdit(task.id)}
-                  onCancel={handleCancelEdit}
-                  onKeyDown={(e) => handleKeyDown(e, task.id)}
-                />
-              ) : (
-                <TaskDisplayRow
-                  task={task}
-                  onToggle={() => onToggleTask(task.id)}
-                  onEdit={() => handleStartEdit(task)}
-                  onDelete={() => onDeleteTask(task.id)}
-                  onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
-                />
-              )}
-            </div>
-          ))}
+      <CardContent className="space-y-4">
+        <QuickAddTask
+          onCreate={handleQuickAdd}
+          isExpanded={isQuickAddExpanded}
+          onToggle={() => setIsQuickAddExpanded(!isQuickAddExpanded)}
+        />
 
-          {displayTasks.length === 0 && <EmptyTaskState />}
-        </div>
+        {displayTasks.length > 0 && (
+          <div className="flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+            {sortedTasks.map((task) => (
+              <div
+                key={task.id}
+                className={cn(
+                  'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
+                  task.done
+                    ? 'bg-muted/20 opacity-75'
+                    : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
+                )}
+              >
+                {editingTaskId === task.id ? (
+                  <TaskEditRow
+                    editingTitle={editingTitle}
+                    editingPriority={editingPriority}
+                    editingDueDate={editingDueDate}
+                    onTitleChange={setEditingTitle}
+                    onPriorityChange={setEditingPriority}
+                    onDueDateChange={setEditingDueDate}
+                    onSave={() => handleSaveEdit(task.id)}
+                    onCancel={handleCancelEdit}
+                    onKeyDown={(e) => handleKeyDown(e, task.id)}
+                  />
+                ) : (
+                  <TaskDisplayRow
+                    task={task}
+                    onToggle={() => onToggleTask(task.id)}
+                    onEdit={() => handleStartEdit(task)}
+                    onDelete={() => onDeleteTask(task.id)}
+                    onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {filteredTasks.length === 0 && displayTasks.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Filter className="size-12 text-muted-foreground/50 mb-3" />
+            <p className="text-sm text-muted-foreground font-medium">
+              No {taskFilter !== 'all' && taskFilter} {timeFilter !== 'all' && timeFilter} tasks
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {taskFilter === 'active' && 'All tasks are completed!'}
+              {taskFilter === 'completed' && 'No completed tasks yet'}
+              {timeFilter === 'today' && 'No tasks due today'}
+              {timeFilter === 'week' && 'No tasks due this week'}
+              {timeFilter === 'overdue' && 'Great! No overdue tasks'}
+              {timeFilter === 'no-date' && 'All tasks have due dates'}
+            </p>
+          </div>
+        )}
+
+        {displayTasks.length === 0 && <EmptyTaskState />}
       </CardContent>
     </Card>
   );

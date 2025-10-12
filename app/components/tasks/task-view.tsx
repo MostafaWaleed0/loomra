@@ -1,4 +1,6 @@
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
+import { useLocalState } from '@/lib/hooks/use-local-state';
+import { UseTasksReturn } from '@/lib/types';
 import { AlertTriangle, BarChart3, Calendar, CheckCircle2 } from 'lucide-react';
 import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from './task-panel';
@@ -15,11 +17,11 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
     <Card>
       <CardContent className="flex items-center justify-between">
         <div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>
-            <p>{value}</p>
-            {subtitle && <p className="mt-1">{subtitle}</p>}
-          </CardDescription>
+          <CardTitle className="flex items-center justify-between gap-1 w-fit">
+            <span>{title}</span>
+            <span className="text-muted-foreground font-medium">{value}</span>
+          </CardTitle>
+          <CardDescription>{subtitle && <p className="mt-1">{subtitle}</p>}</CardDescription>
         </div>
         <div className={`p-3 rounded-lg border ${colors[color as keyof typeof colors]}`}>
           <Icon className="size-6" />
@@ -29,7 +31,10 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
   );
 };
 
-export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: any) {
+export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: UseTasksReturn) {
+  const [taskFilter, setTaskFilter] = useLocalState('taskView.tasks.taskFilter', 'all');
+  const [timeFilter, setTimeFilter] = useLocalState('taskView.tasks.timeFilter', 'all');
+
   return (
     <div>
       <SectionHeader title="Task" description="Organize, prioritize, and complete tasks efficiently." showButton={false} />
@@ -39,13 +44,13 @@ export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, han
           <StatsCard
             icon={BarChart3}
             title="Total Tasks"
-            value={stats.total}
+            value={stats.totalTasks}
             subtitle={`${stats.completionRate}% completed`}
             color="blue"
           />
-          <StatsCard icon={CheckCircle2} title="Completed" value={stats.completed} subtitle="Tasks finished" color="green" />
-          <StatsCard icon={AlertTriangle} title="Overdue" value={stats.overdue} subtitle="Need attention" color="red" />
-          <StatsCard icon={Calendar} title="Due Today" value={stats.dueToday} subtitle="Urgent tasks" color="yellow" />
+          <StatsCard icon={CheckCircle2} title="Completed" value={stats.completedTasks} subtitle="Tasks finished" color="green" />
+          <StatsCard icon={AlertTriangle} title="Overdue" value={stats.overdueTasks} subtitle="Need attention" color="red" />
+          <StatsCard icon={Calendar} title="Due Today" value={stats.pendingTasks} subtitle="Urgent tasks" color="yellow" />
         </div>
         <TaskPanel
           tasks={tasks}
@@ -54,6 +59,10 @@ export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, han
           onToggleTask={handleToggleTask}
           onDeleteTask={handleDeleteTask}
           onEditTask={handleEditTask}
+          taskFilter={taskFilter}
+          timeFilter={timeFilter}
+          onTaskFilterChange={setTaskFilter}
+          onTimeFilterChange={setTimeFilter}
         />
       </div>
     </div>

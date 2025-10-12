@@ -2,9 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ColorUtils, UIUtils } from '@/lib/core';
+import { ColorUtils, DateUtils, UIUtils } from '@/lib/core';
 import type { GoalWithStats } from '@/lib/types';
-import { Edit2 } from 'lucide-react';
+import { Calendar, Edit2, TrendingUp } from 'lucide-react';
 
 interface GoalCardProps {
   goal: GoalWithStats;
@@ -20,32 +20,60 @@ export function GoalCard({ goal, onClick, onEdit }: GoalCardProps) {
   }
 
   return (
-    <Card onClick={onClick} className="cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-      <CardHeader className="flex flex-row items-start justify-between">
-        <div className="size-12 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: goal.color }}>
-          <Icon className="size-6" />
+    <Card onClick={onClick} className="gap-10 group relative overflow-hidden cursor-pointer transition-all duration-500">
+      <div
+        className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+        style={{
+          background: `linear-gradient(135deg, ${goal.color}60, ${goal.color}10)`,
+          padding: '2px',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude'
+        }}
+      />
+      <CardHeader className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <div
+            className="size-14 aspect-square rounded-xl flex items-center justify-center text-white"
+            style={{ backgroundColor: goal.color }}
+          >
+            <Icon className="size-7" />
+          </div>
+          <div>
+            <CardTitle className="text-lg font-semibold break-all line-clamp-1">{goal.title}</CardTitle>
+            {goal.description && <p className="text-sm text-muted-foreground line-clamp-2 break-all">{goal.description}</p>}
+            <div className="flex items-center gap-2 flex-wrap mt-2">
+              <Badge className={ColorUtils.getPriorityColor(goal.priority)}>{goal.priority} priority</Badge>
+              <Badge variant="secondary">{goal.category}</Badge>
+            </div>
+          </div>
         </div>
         <Button variant="ghost" size="icon" onClick={handleEditClick} className="size-9">
           <Edit2 />
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <CardTitle className="text-lg font-semibold break-all line-clamp-1">{goal.title}</CardTitle>
-          {goal.description && <p className="text-sm text-muted-foreground line-clamp-2 break-all">{goal.description}</p>}
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-semibold">{goal.progress}%</span>
+      <CardContent className="mt-auto">
+        <div className="space-y-1 pb-1 border-b text-sm">
+          <div className="flex items-center justify-between font-semibold">
+            <div className="flex items-center gap-1">
+              <TrendingUp className="size-4 text-muted-foreground" />
+              Progress
+            </div>
+            <span>{goal.progress}%</span>
           </div>
           <Progress value={goal.progress} className="h-2" />
+          <span className="text-muted-foreground capitalize text-xs font-medium">
+            {goal.completedTaskCount}/{goal.taskCount} tasks completed
+          </span>
         </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <Badge className={ColorUtils.getPriorityColor(goal.priority)}>{goal.priority} priority</Badge>
-          <span className="text-xs text-muted-foreground font-medium">{goal.category}</span>
+        <div className="flex items-center justify-between pt-2">
+          {goal.deadline && (
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <Calendar className="size-3" />
+              {DateUtils.formatDateForDisplay(goal.deadline, { format: 'short' })}
+            </span>
+          )}
+          <Badge className={ColorUtils.getStatusColor(goal.status)}>{goal.status}</Badge>
         </div>
       </CardContent>
     </Card>

@@ -102,6 +102,8 @@ interface GoalDetailViewProps {
   getHabitsByGoalId: (goalId: string) => Habit[];
   isEditorOpen: boolean;
   setIsEditorOpen: (open: boolean) => void;
+  shouldAnimate: boolean;
+  setShouldAnimate: (value: boolean) => void;
 }
 
 function GoalDetailView({
@@ -117,7 +119,9 @@ function GoalDetailView({
   onDeleteTask,
   getHabitsByGoalId,
   isEditorOpen,
-  setIsEditorOpen
+  setIsEditorOpen,
+  shouldAnimate,
+  setShouldAnimate
 }: GoalDetailViewProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { formData, validationErrors, updateField, resetForm, hasErrors } = useGoalForm(goal);
@@ -135,7 +139,13 @@ function GoalDetailView({
   }
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+    <motion.div
+      variants={shouldAnimate ? pageVariants : undefined}
+      initial={shouldAnimate ? 'initial' : false}
+      animate={shouldAnimate ? 'animate' : false}
+      onAnimationComplete={() => setShouldAnimate(false)}
+      className="space-y-6"
+    >
       <Button variant="outline" onClick={onBack}>
         <ArrowLeft className="size-4 mr-2" />
         Back to Goals
@@ -168,6 +178,7 @@ function GoalDetailView({
               onDeleteTask={onDeleteTask}
               onEditTask={onEditTask}
               getTasksByGoal={(goalId) => tasks.filter((t) => t.goalId === goalId)}
+              showFilter={false}
             />
             <HabitsPanel getHabitsByGoalId={getHabitsByGoalId} selectedGoalId={goal.id} />
           </div>
@@ -243,6 +254,7 @@ export function GoalView({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [shouldAnimate, setShouldAnimate] = useState(false);
   const { resetForm } = useGoalForm(null);
 
   const filteredGoals = useMemo(() => {
@@ -269,11 +281,22 @@ export function GoalView({
     handleCreateGoal({ title: 'New Goal' });
   }
 
+  function handleGoalSelect(goal: GoalWithStats) {
+    setShouldAnimate(true);
+    setSelectedGoal(goal);
+    resetForm(goal);
+  }
+
+  function handleGoalBack() {
+    setShouldAnimate(true);
+    setSelectedGoal(null);
+  }
+
   if (selectedGoal) {
     return (
       <GoalDetailView
         goal={goals.find((g) => g.id === selectedGoal.id) || (selectedGoal as GoalWithStats)}
-        onBack={() => setSelectedGoal(null)}
+        onBack={handleGoalBack}
         onUpdate={handleUpdateGoal}
         onDelete={handleDeleteGoal}
         onStatusChange={handleStatusChange}
@@ -285,12 +308,20 @@ export function GoalView({
         getHabitsByGoalId={getHabitsByGoalId}
         setIsEditorOpen={setIsEditorOpen}
         isEditorOpen={isEditorOpen}
+        shouldAnimate={shouldAnimate}
+        setShouldAnimate={setShouldAnimate}
       />
     );
   }
 
   return (
-    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+    <motion.div
+      variants={shouldAnimate ? pageVariants : undefined}
+      initial={shouldAnimate ? 'initial' : false}
+      animate={shouldAnimate ? 'animate' : false}
+      onAnimationComplete={() => setShouldAnimate(false)}
+      className="space-y-6"
+    >
       <SectionHeader
         title="Goals"
         description="Set clear milestones, monitor progress, and achieve your ambitions."
@@ -323,15 +354,12 @@ export function GoalView({
           action={goals.length === 0 ? { label: 'Create Your First Goal', onClick: handleCreateNew, icon: Plus } : undefined}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredGoals.map((goal) => (
             <GoalCard
               key={goal.id}
               goal={goal}
-              onClick={() => {
-                setSelectedGoal(goal);
-                resetForm(goal);
-              }}
+              onClick={() => handleGoalSelect(goal)}
               onEdit={() => {
                 setSelectedGoal(goal);
                 setIsEditorOpen(true);
