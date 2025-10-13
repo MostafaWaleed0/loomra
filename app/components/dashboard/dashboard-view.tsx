@@ -1,4 +1,5 @@
 'use client';
+import { useUserData } from '@/lib/hooks/use-user-data';
 import type {
   GoalStats,
   GoalWithStats,
@@ -12,10 +13,10 @@ import type {
 import { CheckSquare, Flame, Target } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { SectionHeader } from '../layout/section-header';
+import { Card, CardContent } from '../ui/card';
 import { DashboardGoals } from './dashboard-goals';
 import { DashboardHabits } from './dashboard-habits';
 import { DashboardTasks } from './dashboard-tasks';
-import { Card, CardContent } from '../ui/card';
 
 interface DashboardViewProps {
   goals: GoalWithStats[];
@@ -48,6 +49,8 @@ export function DashboardView({
 }: DashboardViewProps) {
   const [timeOfDay, setTimeOfDay] = useState('morning');
 
+  const { userData } = useUserData();
+
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setTimeOfDay('morning');
@@ -70,7 +73,7 @@ export function DashboardView({
   };
 
   const getGreeting = () => {
-    const name = 'User';
+    const name = userData?.name?.trim() || 'there';
     switch (timeOfDay) {
       case 'morning':
         return `Good Morning, ${name}! ☀️`;
