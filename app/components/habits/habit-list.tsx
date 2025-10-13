@@ -13,10 +13,9 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Row } from '@tanstack/react-table';
-import { Calendar, Edit2, GripVertical, Lock, MoreVertical, Trash2 } from 'lucide-react';
+import { Calendar, GripVertical, MoreVertical, Edit2, Trash2, Lock } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-// UI Components
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,22 +27,19 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 
-// Core Utilities
 import { ColorUtils, DateUtils, FormatUtils } from '@/lib/core';
 import { HABIT_CONFIG } from '@/lib/core/constants';
 import { HabitFrequencyManager, HabitStatusManager } from '@/lib/habit';
-import { DateString, Habit, HabitCompletion, HabitWithMetadata } from '@/lib/types';
-
-// Components
+import { DateString, HabitCompletion, HabitWithMetadata } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { CompletionControl } from '../form/completion-control';
 import { HabitIcon } from '../habit-icon';
 import { HabitActionsMenuContent } from './habit-actions-menu-content';
+import { useLocalState } from '@/lib/hooks/use-local-state';
 
 // ============================================================================
-// TYPE DEFINITIONS
+// TYPES
 // ============================================================================
-
 interface Goal {
   id: string;
   name?: string;
@@ -58,45 +54,14 @@ interface HabitListProps {
   onEditHabit: (habit: HabitWithMetadata) => void;
   onDeleteHabit: (habitId: string) => void;
   onSetHabitCompletion: (habitId: string, date: DateString, completed: boolean, data?: any) => void;
-  selectedHabit?: HabitWithMetadata | null;
-  showDateContext?: boolean;
-  onHabitReorder?: (habits: HabitWithMetadata[]) => void;
   goals?: Goal[];
-}
-
-interface DragHandleProps {
-  listeners: any;
-  attributes: any;
-}
-
-interface DraggableHabitRowProps {
-  row: Row<HabitWithMetadata>;
-  completions: HabitCompletion[];
-  onEditHabit: (habit: HabitWithMetadata) => void;
-  onDeleteHabit: (habitId: string) => void;
-  onHabitSelect: (habitId: string) => void;
-  onSetHabitCompletion: (habitId: string, date: DateString, completed: boolean, data?: any) => void;
-  selectedDate: DateString;
-  goals: Goal[];
-}
-
-interface HabitRowContentProps {
-  habit: HabitWithMetadata;
-  completions: HabitCompletion[];
-  selectedDate: DateString;
-  onEditHabit: (habit: HabitWithMetadata) => void;
-  onDeleteHabit: (habitId: string) => void;
-  onHabitSelect: (habitId: string) => void;
-  onSetHabitCompletion: (habitId: string, date: DateString, completed: boolean, data?: any) => void;
-  goals: Goal[];
-  dragHandleProps: DragHandleProps;
+  showAll: boolean;
 }
 
 // ============================================================================
-// DRAG HANDLE COMPONENT
+// DRAG HANDLE
 // ============================================================================
-
-const DragHandle = React.memo<DragHandleProps>(({ listeners, attributes }) => (
+const DragHandle = React.memo(({ listeners, attributes }: any) => (
   <Button
     {...attributes}
     {...listeners}
@@ -108,15 +73,13 @@ const DragHandle = React.memo<DragHandleProps>(({ listeners, attributes }) => (
     <GripVertical className="size-4" />
   </Button>
 ));
-
 DragHandle.displayName = 'DragHandle';
 
 // ============================================================================
-// DRAGGABLE HABIT ROW COMPONENT
+// DRAGGABLE ROW
 // ============================================================================
-
-const DraggableHabitRow = React.memo<DraggableHabitRowProps>(
-  ({ row, completions, onEditHabit, onDeleteHabit, onHabitSelect, onSetHabitCompletion, selectedDate, goals }) => {
+const DraggableHabitRow = React.memo(
+  ({ row, completions, onEditHabit, onDeleteHabit, onHabitSelect, onSetHabitCompletion, selectedDate, goals, showAll }: any) => {
     const { transform, transition, setNodeRef, isDragging, attributes, listeners } = useSortable({
       id: row.original.id
     });
@@ -126,7 +89,7 @@ const DraggableHabitRow = React.memo<DraggableHabitRowProps>(
         ref={setNodeRef}
         data-dragging={isDragging}
         className={cn(
-          'flex items-center justify-between gap-3 py-4 relative z-0 bg-card transition-all duration-200 w-full min-w-[700px]',
+          'flex items-center justify-between gap-3 py-4 relative z-0 bg-card transition-all duration-200 w-full min-w-[500px]',
           isDragging ? 'z-10 opacity-80' : ''
         )}
         style={{
@@ -144,19 +107,18 @@ const DraggableHabitRow = React.memo<DraggableHabitRowProps>(
           onSetHabitCompletion={onSetHabitCompletion}
           goals={goals}
           dragHandleProps={{ listeners, attributes }}
+          showAll={showAll}
         />
       </div>
     );
   }
 );
-
 DraggableHabitRow.displayName = 'DraggableHabitRow';
 
 // ============================================================================
-// HABIT ROW CONTENT COMPONENT
+// ROW CONTENT
 // ============================================================================
-
-const HabitRowContent = React.memo<HabitRowContentProps>(
+const HabitRowContent = React.memo(
   ({
     habit,
     completions,
@@ -166,22 +128,17 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
     onHabitSelect,
     onSetHabitCompletion,
     goals,
-    dragHandleProps
-  }) => {
+    dragHandleProps,
+    showAll
+  }: any) => {
     const dayStatus = HabitStatusManager.getDayStatus(habit, completions, selectedDate);
     const statusInfo = HabitStatusManager.getStatusMessage(dayStatus, habit);
     const frequencyDescription = HabitFrequencyManager.describe(habit.frequency);
-
     const canModifyCompletion = !DateUtils.isFutureDate(selectedDate) && dayStatus !== HABIT_CONFIG.STATUS.LOCKED;
-
-    console.log(habit);
 
     return (
       <>
-        {/* Drag Handle */}
-        <DragHandle {...dragHandleProps} />
-
-        {/* Habit Icon & Info */}
+        {showAll ? <DragHandle {...dragHandleProps} /> : null}
         <div className="flex items-center gap-3 flex-1">
           <HabitIcon habit={habit} size="size-10" className="flex-shrink-0" />
           <div className="flex-1">
@@ -193,17 +150,18 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
             >
               <span className="truncate text-base">{habit.name}</span>
             </Button>
+
             <div className="flex items-center gap-2 mt-1.5">
               <Badge variant="outline" className="text-xs">
                 {habit.category}
               </Badge>
               <Badge className={cn(ColorUtils.getPriorityColor(habit.priority), 'text-xs')}>{habit.priority}</Badge>
-              {habit.linkedGoals && habit.linkedGoals.length > 0 && (
+              {habit.linkedGoals?.length > 0 && (
                 <Badge variant="secondary" className="text-xs">
                   {FormatUtils.formatList(
                     goals
-                      .filter((goal) => goal && (goal.title || goal.name) && habit.linkedGoals.includes(goal.id))
-                      .map((goal) => goal.title || goal.name || ''),
+                      .filter((goal: Goal) => goal && (goal.title || goal.name) && habit.linkedGoals.includes(goal.id))
+                      .map((goal: Goal) => goal.title || goal.name || ''),
                     { maxItems: 2 }
                   )}
                 </Badge>
@@ -213,61 +171,63 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
           </div>
         </div>
 
-        {/* Status & Progress */}
-        <div className="flex justify-end items-center gap-3 sm:gap-4">
-          {statusInfo && (
-            <Badge variant={statusInfo.variant} className="text-xs font-medium">
-              {statusInfo.title}
-            </Badge>
-          )}
-          <div className="flex flex-col items-end">
-            {canModifyCompletion ? (
-              <CompletionControl
-                habit={habit}
-                completions={completions}
-                selectedDate={selectedDate}
-                onSetHabitCompletion={onSetHabitCompletion}
-              />
-            ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Lock className="size-4" />
-                <span className="text-sm">{DateUtils.isFutureDate(selectedDate) ? 'Future' : 'Locked'}</span>
-              </div>
-            )}
-          </div>
+        {/* Status / Completion / Actions */}
 
-          {/* Streak Info */}
+        <div className="flex justify-end items-center gap-3 sm:gap-4">
+          {showAll ? null : (
+            <>
+              {statusInfo && (
+                <Badge variant={statusInfo.variant} className="text-xs font-medium">
+                  {statusInfo.title}
+                </Badge>
+              )}
+              <div className="flex flex-col items-end">
+                {canModifyCompletion ? (
+                  <CompletionControl
+                    habit={habit}
+                    completions={completions}
+                    selectedDate={selectedDate}
+                    onSetHabitCompletion={onSetHabitCompletion}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Lock className="size-4" />
+                    <span className="text-sm">{DateUtils.isFutureDate(selectedDate) ? 'Future' : 'Locked'}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           <div className="flex flex-col items-center min-w-12 sm:min-w-16">
             <div className="text-sm font-semibold text-foreground">{habit.currentStreak || 0}</div>
             <div className="text-xs text-muted-foreground">Streak</div>
           </div>
 
-          {/* Actions Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="size-9 p-0 hover:bg-muted/50" aria-label="Open habit actions menu">
                 <MoreVertical className="size-4" />
-                <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-45">
-              <HabitActionsMenuContent
-                habit={habit}
-                completions={completions}
-                selectedDate={selectedDate}
-                onSetHabitCompletion={onSetHabitCompletion}
-                canModifyCompletion={canModifyCompletion}
-              />
-              <DropdownMenuSeparator />
-              {/* Management Actions */}
+              {showAll ? null : (
+                <>
+                  <HabitActionsMenuContent
+                    habit={habit}
+                    completions={completions}
+                    selectedDate={selectedDate}
+                    onSetHabitCompletion={onSetHabitCompletion}
+                    canModifyCompletion={canModifyCompletion}
+                  />
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={() => onEditHabit(habit)}>
                 <Edit2 className="mr-1 size-4" />
                 Edit Habit
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
-
-              {/* Destructive Action */}
               <DropdownMenuItem onClick={() => onDeleteHabit(habit.id)} className="text-destructive">
                 <Trash2 className="mr-1 size-4" />
                 Delete Habit
@@ -279,53 +239,67 @@ const HabitRowContent = React.memo<HabitRowContentProps>(
     );
   }
 );
-
 HabitRowContent.displayName = 'HabitRowContent';
 
 // ============================================================================
-// MAIN HABIT LIST COMPONENT
+// MAIN COMPONENT WITH useLocalStorage
 // ============================================================================
-
 export const HabitList = React.memo<HabitListProps>(
-  ({ habits, completions, selectedDate, onHabitSelect, onEditHabit, onDeleteHabit, onSetHabitCompletion, goals = [] }) => {
-    const [data, setData] = React.useState<Habit[]>(habits);
+  ({
+    habits,
+    completions,
+    selectedDate,
+    onHabitSelect,
+    onEditHabit,
+    onDeleteHabit,
+    onSetHabitCompletion,
+    goals = [],
+    showAll
+  }) => {
+    const [habitOrder, setHabitOrder] = useLocalState<string[]>('habit-order', []);
 
-    // Drag and drop sensors
+    const orderedHabits = useMemo(() => {
+      if (habitOrder.length === 0) return habits;
+      const ordered = habitOrder
+        .map((id: UniqueIdentifier) => habits.find((h) => h.id === id))
+        .filter(Boolean) as HabitWithMetadata[];
+      const newOnes = habits.filter((h) => !habitOrder.includes(h.id));
+      return [...ordered, ...newOnes];
+    }, [habits, habitOrder]);
+
+    const [data, setData] = React.useState<HabitWithMetadata[]>(orderedHabits);
+
+    useEffect(() => {
+      setData(orderedHabits);
+    }, [orderedHabits]);
+
     const sensors = useSensors(
-      useSensor(MouseSensor, {
-        activationConstraint: { distance: 8 }
-      }),
-      useSensor(TouchSensor, {
-        activationConstraint: { delay: 200, tolerance: 6 }
-      }),
+      useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+      useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
       useSensor(KeyboardSensor)
     );
 
-    const dataIds = useMemo<UniqueIdentifier[]>(() => data?.map(({ id }) => id) || [], [data]);
+    const dataIds = useMemo<UniqueIdentifier[]>(() => data.map(({ id }) => id), [data]);
 
-    useEffect(() => {
-      setData(habits);
-    }, [habits]);
-
-    // Drag end handler
     const handleDragEnd = useCallback(
       (event: DragEndEvent) => {
         const { active, over } = event;
+        if (!over || active.id === over.id) return;
 
-        if (active && over && active.id !== over.id) {
-          const oldIndex = dataIds.indexOf(active.id);
-          const newIndex = dataIds.indexOf(over.id);
+        const oldIndex = dataIds.indexOf(active.id);
+        const newIndex = dataIds.indexOf(over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
 
-          if (oldIndex !== -1 && newIndex !== -1) {
-            const newData = arrayMove(data, oldIndex, newIndex);
-            setData(newData);
-          }
+        const newData = arrayMove(data, oldIndex, newIndex);
+        setData(newData);
+
+        if (showAll) {
+          setHabitOrder(newData.map((h) => h.id));
         }
       },
-      [dataIds, data]
+      [data, dataIds, setHabitOrder, showAll]
     );
 
-    // Empty state
     if (data.length === 0) {
       return (
         <Card>
@@ -366,6 +340,7 @@ export const HabitList = React.memo<HabitListProps>(
                       onSetHabitCompletion={onSetHabitCompletion}
                       selectedDate={selectedDate}
                       goals={goals}
+                      showAll={showAll}
                     />
                   );
                 })}
@@ -377,5 +352,4 @@ export const HabitList = React.memo<HabitListProps>(
     );
   }
 );
-
 HabitList.displayName = 'HabitList';

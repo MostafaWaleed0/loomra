@@ -71,6 +71,8 @@ export function HabitView({
   setHabitCompletion,
   handleHabitSelect
 }: HabitViewProps) {
+  const [showAllHabits, setShowAllHabits] = useState(false);
+
   const [drawerState, setDrawerState] = useState<DrawerState>({
     isOpen: false,
     editingHabit: null,
@@ -91,19 +93,45 @@ export function HabitView({
     setDrawerState({ isOpen: true, editingHabit: habit, mode: 'edit' });
   }
 
-  const habitsWithMetadata = getHabitsWithMetadata(selectedDate);
+  const habitsWithMetadata = getHabitsWithMetadata(selectedDate, showAllHabits);
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <SectionHeader
-          title="Habit Tracker"
-          description="Build consistency, track routines, and celebrate small wins daily."
-          onButtonClick={openCreateHabitDrawerView}
-          buttonLabel="New Habit"
-        />
-        <Card>
-          <CardHeader className="pb-4">
+    <div>
+      <SectionHeader
+        title="Habit Tracker"
+        description="Build consistency, track routines, and celebrate small wins daily."
+        onButtonClick={openCreateHabitDrawerView}
+        buttonLabel="New Habit"
+      />
+      <div className="mb-4 flex items-center gap-2">
+        <Button
+          variant={showAllHabits ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setShowAllHabits(true)}
+          className="min-w-24"
+        >
+          All Habits
+        </Button>
+        <Button
+          variant={!showAllHabits ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setShowAllHabits(false)}
+          className="min-w-24"
+        >
+          Today's Schedule
+        </Button>
+        <Badge variant="secondary" className="ml-auto capitalize">
+          {showAllHabits ? FormatUtils.formatPlural(habitsWithMetadata.length, 'habit') : `${stats.dueToday} scheduled`}
+        </Badge>
+      </div>
+      <Card>
+        <CardHeader className="pb-4">
+          {showAllHabits ? (
+            <div className="flex items-center gap-3">
+              <CalendarDays className="size-5 text-muted-foreground" aria-hidden="true" />
+              <CardTitle className="text-lg">All Scheduled Habits</CardTitle>
+            </div>
+          ) : (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <CalendarDays className="size-5 text-muted-foreground" aria-hidden="true" />
@@ -126,25 +154,26 @@ export function HabitView({
                 </div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {habitsWithMetadata.length === 0 ? (
-              <EmptyHabitsState onCreate={openCreateHabitDrawerView} isDateSpecific={prefs.showOnlyScheduledForDate} />
-            ) : (
-              <HabitList
-                habits={habitsWithMetadata}
-                completions={completions}
-                selectedDate={selectedDate}
-                onHabitSelect={handleHabitSelect}
-                onEditHabit={openEditHabitDrawerView}
-                onDeleteHabit={handleDeleteHabit}
-                onSetHabitCompletion={setHabitCompletion}
-                goals={goals}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardHeader>
+        <CardContent className="pt-0">
+          {habitsWithMetadata.length === 0 ? (
+            <EmptyHabitsState onCreate={openCreateHabitDrawerView} isDateSpecific={prefs.showOnlyScheduledForDate} />
+          ) : (
+            <HabitList
+              habits={habitsWithMetadata}
+              completions={completions}
+              selectedDate={selectedDate}
+              onHabitSelect={handleHabitSelect}
+              onEditHabit={openEditHabitDrawerView}
+              onDeleteHabit={handleDeleteHabit}
+              onSetHabitCompletion={setHabitCompletion}
+              goals={goals}
+              showAll={showAllHabits}
+            />
+          )}
+        </CardContent>
+      </Card>
       <HabitDrawerView
         isOpen={drawerState.isOpen}
         onClose={closeHabitDrawerView}
