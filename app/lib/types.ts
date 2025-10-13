@@ -1,5 +1,23 @@
 import { HABIT_CONFIG, GOAL_CONFIG, UI_CONFIG, WEEK_DAYS, TASK_CONFIG } from './core/constants';
 
+export interface UserData {
+  name: string;
+  passwordHash?: string;
+  createdAt?: string;
+  lastLogin?: string;
+  preferences?: {
+    theme?: 'light' | 'dark' | 'system';
+    notifications?: boolean;
+    language?: string;
+  };
+}
+
+export interface UserSetupData {
+  name: string;
+  password: string;
+  confirmPassword?: string;
+}
+
 // ============================================================================
 // BASE TYPES
 // ============================================================================

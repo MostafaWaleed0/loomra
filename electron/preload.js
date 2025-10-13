@@ -3,6 +3,20 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // auth
+  auth: {
+    hashPassword: (password) => ipcRenderer.invoke('auth:hash-password', password),
+    verifyPassword: (password, hashedPassword) => ipcRenderer.invoke('auth:verify-password', password, hashedPassword)
+  },
+
+  // user
+  userData: {
+    get: () => ipcRenderer.invoke('user-data:get'),
+    save: (userData) => ipcRenderer.invoke('user-data:save', userData),
+    update: (field, value) => ipcRenderer.invoke('user-data:update', field, value),
+    delete: () => ipcRenderer.invoke('user-data:delete')
+  },
+
   // Goals
   goals: {
     createGoal: (goal) => ipcRenderer.invoke('goal:create', goal),

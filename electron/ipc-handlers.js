@@ -1,8 +1,121 @@
 'use strict';
 
-const { nativeTheme, ipcMain } = require('electron');
+const { nativeTheme, ipcMain, app } = require('electron');
+const fs = require('fs').promises;
+const path = require('path');
+const bcrypt = require('bcryptjs');
+
+// Get user data path
+const getUserDataPath = () => {
+  return path.join(app.getPath('userData'), 'user-config.json');
+};
 
 function setupIpcHandlers(dbManager) {
+  // ============================================================================
+  // AUTHENTICATION HANDLERS
+  // ============================================================================
+
+  // Hash password
+  ipcMain.handle('auth:hash-password', async (event, password) => {
+    try {
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      return hashedPassword;
+    } catch (error) {
+      console.error('Error hashing password:', error);
+      throw error;
+    }
+  });
+
+  // Verify password
+  ipcMain.handle('auth:verify-password', async (event, password, hashedPassword) => {
+    try {
+      const isValid = await bcrypt.compare(password, hashedPassword);
+      return isValid;
+    } catch (error) {
+      console.error('Error verifying password:', error);
+      throw error;
+    }
+  });
+
+  // ============================================================================
+  // USER DATA HANDLERS
+  // ============================================================================
+
+  // Get user data
+  ipcMain.handle('user-data:get', async () => {
+    try {
+      const filePath = getUserDataPath();
+      const data = await fs.readFile(filePath, 'utf-8');
+      return JSON.parse(data);
+    } catch (error) {
+      // If file doesn't exist, return null
+      if (error.code === 'ENOENT') {
+        return null;
+      }
+      console.error('Error reading user data:', error);
+      throw error;
+    }
+  });
+
+  // Save user data
+  ipcMain.handle('user-data:save', async (event, userData) => {
+    try {
+      const filePath = getUserDataPath();
+      const data = JSON.stringify(userData, null, 2);
+      await fs.writeFile(filePath, data, 'utf-8');
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving user data:', error);
+      throw error;
+    }
+  });
+
+  // Update specific field
+  ipcMain.handle('user-data:update', async (event, field, value) => {
+    try {
+      const filePath = getUserDataPath();
+      let userData = {};
+
+      // Read existing data
+      try {
+        const data = await fs.readFile(filePath, 'utf-8');
+        userData = JSON.parse(data);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+
+      // Update field
+      userData[field] = value;
+
+      // Save
+      await fs.writeFile(filePath, JSON.stringify(userData, null, 2), 'utf-8');
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating user data:', error);
+      throw error;
+    }
+  });
+
+  // Delete user data (for reset/logout)
+  ipcMain.handle('user-data:delete', async () => {
+    try {
+      const filePath = getUserDataPath();
+      await fs.unlink(filePath);
+      return { success: true };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return { success: true }; // Already deleted
+      }
+      console.error('Error deleting user data:', error);
+      throw error;
+    }
+  });
+
+  // ============================================================================
+  // GOAL HANDLERS
+  // ============================================================================
+
   ipcMain.handle('goal:create', async (event, goal) => {
     try {
       return await dbManager.createGoal(goal);
@@ -55,7 +168,6 @@ function setupIpcHandlers(dbManager) {
   ipcMain.handle('task:create', async (event, task) => {
     try {
       const createdTask = await dbManager.createTask(task);
-      // No progress update needed - calculate on read instead
       return createdTask;
     } catch (error) {
       console.error('IPC task:create error:', error);
@@ -111,12 +223,11 @@ function setupIpcHandlers(dbManager) {
   });
 
   // ============================================================================
-  // HABIT HANDLERS (Placeholder - implement based on your DatabaseManager)
+  // HABIT HANDLERS
   // ============================================================================
 
   ipcMain.handle('habit:create', async (event, habit) => {
     try {
-      // Implement createHabit in DatabaseManager
       return await dbManager.createHabit(habit);
     } catch (error) {
       console.error('IPC habit:create error:', error);
@@ -126,7 +237,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habit:update', async (event, habit) => {
     try {
-      // Implement updateHabit in DatabaseManager
       return await dbManager.updateHabit(habit);
     } catch (error) {
       console.error('IPC habit:update error:', error);
@@ -136,7 +246,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habit:delete', async (event, id) => {
     try {
-      // Implement deleteHabit in DatabaseManager
       return await dbManager.deleteHabit(id);
     } catch (error) {
       console.error('IPC habit:delete error:', error);
@@ -146,7 +255,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habit:getAll', async () => {
     try {
-      // Implement getAllHabits in DatabaseManager
       return await dbManager.getAllHabits();
     } catch (error) {
       console.error('IPC habit:getAll error:', error);
@@ -156,7 +264,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habit:getById', async (event, id) => {
     try {
-      // Implement getHabitById in DatabaseManager
       return await dbManager.getHabitById(id);
     } catch (error) {
       console.error('IPC habit:getById error:', error);
@@ -170,7 +277,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habitCompletion:create', async (event, completion) => {
     try {
-      // Implement createHabitCompletion in DatabaseManager
       return await dbManager.createHabitCompletion(completion);
     } catch (error) {
       console.error('IPC habitCompletion:create error:', error);
@@ -180,7 +286,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habitCompletion:update', async (event, completion) => {
     try {
-      // Implement updateHabitCompletion in DatabaseManager
       return await dbManager.updateHabitCompletion(completion);
     } catch (error) {
       console.error('IPC habitCompletion:update error:', error);
@@ -190,7 +295,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habitCompletion:delete', async (event, id) => {
     try {
-      // Implement deleteHabitCompletion in DatabaseManager
       return await dbManager.deleteHabitCompletion(id);
     } catch (error) {
       console.error('IPC habitCompletion:delete error:', error);
@@ -200,7 +304,6 @@ function setupIpcHandlers(dbManager) {
 
   ipcMain.handle('habitCompletion:get', async (event, habitId, startDate, endDate) => {
     try {
-      // Implement getHabitCompletions in DatabaseManager
       return await dbManager.getHabitCompletions(habitId, startDate, endDate);
     } catch (error) {
       console.error('IPC habitCompletion:get error:', error);

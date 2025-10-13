@@ -1,4 +1,4 @@
-import { Goal, Habit, Task, HabitCompletion, DateString, DeleteStrategy } from '../lib/types';
+import type { UserData, Goal, Habit, Task, HabitCompletion, DateString, DeleteStrategy } from '../lib/types';
 
 interface UpdateInfo {
   version: string;
@@ -31,6 +31,11 @@ interface CheckUpdateResult {
   info?: UpdateInfo;
   message?: string;
   error?: string;
+}
+
+interface AuthAPI {
+  hashPassword: (password: string) => Promise<string>;
+  verifyPassword: (password: string, hashedPassword: string) => Promise<boolean>;
 }
 
 interface GoalsAPI {
@@ -74,12 +79,21 @@ interface UpdatersAPI {
   onDownloadProgress: (callback: (progress: DownloadProgress) => void) => () => void;
 }
 
+interface UserDataAPI {
+  get: () => Promise<UserData | null>;
+  save: (userData: UserData) => Promise<{ success: boolean }>;
+  update: (field: keyof UserData, value: any) => Promise<{ success: boolean }>;
+  delete: () => Promise<{ success: boolean }>;
+}
+
 interface ElectronAPI {
+  auth: AuthAPI;
   goals: GoalsAPI;
   tasks: TasksAPI;
   habits: HabitsAPI;
   habitCompletions: HabitCompletionsAPI;
   updater: UpdatersAPI;
+  userData: UserDataAPI;
   setTheme: (theme: 'light' | 'dark') => void;
 }
 
