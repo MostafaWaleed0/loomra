@@ -520,7 +520,7 @@ export interface UseHabitsReturn {
   ) => Promise<void>;
   getHabitById: (habitId: string) => Habit | null;
   getHabitsByGoalId: (goalId: string) => Habit[];
-  getHabitsWithMetadata: (date?: DateString) => HabitWithMetadata[];
+  getHabitsWithMetadata: (date?: DateString, showAll?: boolean) => HabitWithMetadata[];
   isSkippedOnDate: (habit: Habit, date: DateString) => boolean;
   handleHabitSelect: (habitIdOrHabit: string | null) => void;
 }

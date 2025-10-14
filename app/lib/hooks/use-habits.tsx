@@ -483,15 +483,15 @@ export function useHabits(): UseHabitsReturn {
   );
 
   const getHabitsWithMetadata = useCallback(
-    (date: DateString = selectedDate): HabitWithMetadata[] => {
+    (date: DateString = selectedDate, showAll: boolean = false): HabitWithMetadata[] => {
       const today = DateUtils.getCurrentDateString();
       const weekStart = DateUtils.getWeekStart();
       const weekEnd = DateUtils.getWeekEnd();
       const monthStart = DateUtils.getMonthStart();
       const monthEnd = DateUtils.getMonthEnd();
-      const habitsForDate = getHabitsForDate(selectedDate);
+      const displayedHabits = showAll ? habits : getHabitsForDate(selectedDate);
 
-      return habitsForDate.map((habit) => {
+      return displayedHabits.map((habit) => {
         const status = HabitScheduler.getHabitStatusForDate(habit, completions, date);
 
         // Calculate completions for this week
@@ -518,8 +518,6 @@ export function useHabits(): UseHabitsReturn {
         ).length;
         const actualCompletions = HabitStatsCalculator.getActualCompletions(habit, completions);
         const completionRate = scheduledDays > 0 ? Math.round((actualCompletions / scheduledDays) * 100) : 0;
-
-        console.log(scheduledDays, actualCompletions);
 
         // Calculate streak data from completions
         const habitStats = HabitCompletionManager.calculateHabitStats(completions, habit);
