@@ -1,35 +1,31 @@
 version = 1
 
+# Exclude folders that should not be analyzed
+exclude_patterns = [
+  "node_modules/**",
+  ".next/**",
+  "out/**",
+  "dist/**",
+  "build/**",
+  "coverage/**",
+  ".deepsource.toml",
+  "*.config.js",
+  "*.config.ts",
+  "electron.js"
+]
+
 [[analyzers]]
 name = "javascript"
 enabled = true
 
   [analyzers.meta]
-  # Enable TypeScript and React support
-  typescript = true
-  react = true
-
-  # Exclude build artifacts and non-source files
-  exclude_patterns = [
-    "node_modules/**",
-    ".next/**",
-    "out/**",
-    "dist/**",
-    "build/**",
-    "coverage/**",
-    ".deepsource.toml",
-    "*.config.js",
-    "*.config.ts",
-    "electron.js",
-  ]
-
-[[transformers]]
-name = "eslint"
-enabled = true
-
-  [transformers.meta]
-  # Automatically detect ESLint configuration file
-  config = ".eslintrc.*"
+  plugins = ["react"]
+  environment = ["nodejs", "browser"]
+  module_system = "es-modules"
+  dialect = "typescript"
+  style_guide = "airbnb"
+  cyclomatic_complexity_threshold = "high"
+  skip_doc_coverage = ["class-expression", "method-definition"]
 
 [[analyzers]]
 name = "secrets"
