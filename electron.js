@@ -3,6 +3,7 @@ const { app, BrowserWindow, session, nativeTheme, Tray, Menu, dialog, shell, pro
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 const path = require('path');
+const fs = require('fs');
 const { DatabaseManager } = require('./electron/database-manager');
 const { setupIpcHandlers } = require('./electron/ipc-handlers');
 
@@ -19,12 +20,16 @@ const DEFAULT_HEIGHT = 768;
 const MIN_WIDTH = 640;
 const MIN_HEIGHT = 480;
 
+// Update check interval: 24 hours in milliseconds
+const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000;
+
 class App {
   constructor() {
     this.mainWindow = null;
     this.databaseManager = null;
     this.tray = null;
     this.isQuitting = false;
+    this.updateCheckFile = path.join(app.getPath('userData'), 'last-update-check.json');
 
     // Single instance lock
     const gotTheLock = app.requestSingleInstanceLock();
@@ -62,6 +67,38 @@ class App {
     this.setupAutoUpdater();
   }
 
+  getLastUpdateCheckTime() {
+    try {
+      if (fs.existsSync(this.updateCheckFile)) {
+        const data = fs.readFileSync(this.updateCheckFile, 'utf8');
+        const json = JSON.parse(data);
+        return json.lastCheck || 0;
+      }
+    } catch (error) {
+      log.error('Error reading last update check time:', error);
+    }
+    return 0;
+  }
+
+  saveLastUpdateCheckTime() {
+    try {
+      const data = JSON.stringify({ lastCheck: Date.now() });
+      fs.writeFileSync(this.updateCheckFile, data, 'utf8');
+    } catch (error) {
+      log.error('Error saving last update check time:', error);
+    }
+  }
+
+  shouldCheckForUpdates() {
+    const lastCheck = this.getLastUpdateCheckTime();
+    const now = Date.now();
+    const timeSinceLastCheck = now - lastCheck;
+
+    log.info(`Time since last update check: ${(timeSinceLastCheck / 1000 / 60 / 60).toFixed(2)} hours`);
+
+    return timeSinceLastCheck >= UPDATE_CHECK_INTERVAL;
+  }
+
   setupAutoUpdaterIpcHandlers() {
     // Register IPC handlers BEFORE window creation
     ipcMain.handle('check-for-updates', async () => {
@@ -71,6 +108,7 @@ class App {
 
       try {
         const result = await autoUpdater.checkForUpdates();
+        this.saveLastUpdateCheckTime();
         return { available: true, info: result };
       } catch (error) {
         const errorMessage = error?.message || error?.toString() || 'Unknown error';
@@ -124,14 +162,6 @@ class App {
     autoUpdater.allowPrerelease = false;
     autoUpdater.allowDowngrade = false;
 
-    // Check for updates every 4 hours
-    setInterval(() => {
-      log.info('Running periodic update check');
-      autoUpdater.checkForUpdates().catch((err) => {
-        log.error('Periodic update check failed:', err);
-      });
-    }, 4 * 60 * 60 * 1000);
-
     // Update available
     autoUpdater.on('checking-for-update', () => {
       log.info('Checking for updates...');
@@ -141,6 +171,8 @@ class App {
     autoUpdater.on('update-available', (info) => {
       log.info('Update available:', info);
       this.sendStatusToWindow('update-available', info);
+
+      // Always show dialog when update is available
       const dialogOpts = {
         type: 'info',
         buttons: ['Download', 'Later'],
@@ -148,6 +180,7 @@ class App {
         message: `Version ${info.version} is available`,
         detail: `Current version: ${app.getVersion()}\nNew version: ${info.version}\n\nWould you like to download the update now?`
       };
+
       dialog.showMessageBox(this.mainWindow, dialogOpts).then((result) => {
         if (result.response === 0) {
           log.info('User chose to download update');
@@ -255,13 +288,22 @@ class App {
 
       this.createTray();
 
-      // Check for updates after app is ready (delay for better UX)
+      // Check for updates on startup if 24 hours have passed
       if (!isDev) {
         setTimeout(() => {
-          log.info('Initial update check');
-          autoUpdater.checkForUpdates().catch((err) => {
-            log.error('Initial update check failed:', err);
-          });
+          if (this.shouldCheckForUpdates()) {
+            log.info('Starting automatic update check (4 hours elapsed since last check)');
+            autoUpdater
+              .checkForUpdates()
+              .then(() => {
+                this.saveLastUpdateCheckTime();
+              })
+              .catch((err) => {
+                log.error('Automatic update check failed:', err);
+              });
+          } else {
+            log.info('Skipping automatic update check (last check was less than 4 hours ago)');
+          }
         }, 5000);
       }
 
@@ -456,6 +498,7 @@ class App {
     autoUpdater
       .checkForUpdates()
       .then((result) => {
+        this.saveLastUpdateCheckTime();
         if (manual && result && !result.updateInfo) {
           dialog.showMessageBox(this.mainWindow, {
             type: 'info',
