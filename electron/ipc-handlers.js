@@ -1,14 +1,9 @@
 'use strict';
 
-const { nativeTheme, ipcMain, app } = require('electron');
+const { nativeTheme, ipcMain } = require('electron');
 const fs = require('fs').promises;
-const path = require('path');
 const bcrypt = require('bcryptjs');
-
-// Get user data path
-const getUserDataPath = () => {
-  return path.join(app.getPath('userData'), 'user-config.json');
-};
+const pathManager = require('./path-manager');
 
 function setupIpcHandlers(dbManager) {
   // ============================================================================
@@ -45,7 +40,7 @@ function setupIpcHandlers(dbManager) {
   // Get user data
   ipcMain.handle('user-data:get', async () => {
     try {
-      const filePath = getUserDataPath();
+      const filePath = pathManager.getUserConfigPath();
       const data = await fs.readFile(filePath, 'utf-8');
       return JSON.parse(data);
     } catch (error) {
@@ -61,7 +56,7 @@ function setupIpcHandlers(dbManager) {
   // Save user data
   ipcMain.handle('user-data:save', async (event, userData) => {
     try {
-      const filePath = getUserDataPath();
+      const filePath = pathManager.getUserConfigPath();
       const data = JSON.stringify(userData, null, 2);
       await fs.writeFile(filePath, data, 'utf-8');
       return { success: true };
@@ -74,7 +69,7 @@ function setupIpcHandlers(dbManager) {
   // Update specific field
   ipcMain.handle('user-data:update', async (event, field, value) => {
     try {
-      const filePath = getUserDataPath();
+      const filePath = pathManager.getUserConfigPath();
       let userData = {};
 
       // Read existing data
@@ -100,7 +95,7 @@ function setupIpcHandlers(dbManager) {
   // Delete user data (for reset/logout)
   ipcMain.handle('user-data:delete', async () => {
     try {
-      const filePath = getUserDataPath();
+      const filePath = pathManager.getUserConfigPath();
       await fs.unlink(filePath);
       return { success: true };
     } catch (error) {

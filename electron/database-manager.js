@@ -2,12 +2,11 @@
 
 const Database = require('better-sqlite3');
 const path = require('path');
-const { app } = require('electron');
 const fs = require('fs');
+const pathManager = require('./path-manager');
 
 function DatabaseManager() {
-  const userDataPath = app.getPath('userData');
-  this.dbPath = path.join(userDataPath, 'goals-tracker.db');
+  this.dbPath = pathManager.getDatabasePath();
   this.db = null;
 }
 
