@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, session, nativeTheme, Tray, Menu, dialog, shell, protocol, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, session, nativeTheme, Tray, Menu, dialog, shell, ipcMain, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 const path = require('path');
@@ -90,7 +90,7 @@ class AdvancedApp {
   }
 
   validateWindowState() {
-    // Validate state is within current screen bounds (called after app is ready)
+    // Validate state is within current screen bounds
     try {
       const displays = screen.getAllDisplays();
       const state = this.windowState;
@@ -317,14 +317,6 @@ class AdvancedApp {
 
   async onReady() {
     try {
-      // Register file protocol for production
-      if (!isDev) {
-        protocol.registerFileProtocol('file', (request, callback) => {
-          const pathname = decodeURI(request.url.replace('file:///', ''));
-          callback(pathname);
-        });
-      }
-
       // Validate window state now that screen module is available
       this.validateWindowState();
 
@@ -402,11 +394,11 @@ class AdvancedApp {
             ...details.responseHeaders,
             'Content-Security-Policy': [
               "default-src 'self'; " +
-                "script-src 'self'; " +
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
                 "style-src 'self' 'unsafe-inline'; " +
                 "img-src 'self' data: blob: file:; " +
                 "font-src 'self' data:; " +
-                "connect-src 'self' ws: wss:;"
+                "connect-src 'self';"
             ]
           }
         });
@@ -420,11 +412,41 @@ class AdvancedApp {
       log.info('Loaded development URL');
     } else {
       const indexPath = path.join(__dirname, 'out', 'index.html');
-      log.info('Loading production file:', indexPath);
-      this.mainWindow.loadFile(indexPath).catch((err) => {
-        log.error('Failed to load index.html:', err);
-        dialog.showErrorBox('Load Error', `Failed to load app: ${err.message}`);
-      });
+
+      log.info('Loading production file from:', indexPath);
+      log.info('__dirname:', __dirname);
+
+      // Check if file exists before loading
+      if (!fs.existsSync(indexPath)) {
+        log.error('index.html not found at:', indexPath);
+
+        // List contents of out directory for debugging
+        const outDir = path.join(__dirname, 'out');
+        if (fs.existsSync(outDir)) {
+          const files = fs.readdirSync(outDir);
+          log.info('Files in out directory:', files);
+        } else {
+          log.error('out directory does not exist at:', outDir);
+        }
+
+        dialog.showErrorBox(
+          'File Not Found',
+          `Cannot find index.html at: ${indexPath}\n\nPlease run 'npm run build' before packaging the app.`
+        );
+        app.quit();
+        return;
+      }
+
+      // Use loadFile instead of loadURL for better reliability
+      this.mainWindow
+        .loadFile(indexPath)
+        .then(() => {
+          log.info('Successfully loaded index.html');
+        })
+        .catch((err) => {
+          log.error('Failed to load index.html:', err);
+          dialog.showErrorBox('Load Error', `Failed to load app: ${err.message}`);
+        });
     }
 
     // Show window when ready
@@ -452,6 +474,11 @@ class AdvancedApp {
     // Log load failures
     this.mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
       log.error('Failed to load:', errorCode, errorDescription, validatedURL);
+    });
+
+    // Log when page finishes loading
+    this.mainWindow.webContents.on('did-finish-load', () => {
+      log.info('Page finished loading');
     });
 
     // Track window state changes
@@ -519,6 +546,16 @@ class AdvancedApp {
     if (!this.tray) return;
 
     const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Show App',
+        click: () => {
+          if (this.mainWindow) {
+            this.mainWindow.show();
+            this.mainWindow.focus();
+          }
+        }
+      },
+      { type: 'separator' },
       {
         label: 'Check for Updates',
         click: () => this.checkForUpdates(true)
@@ -652,9 +689,16 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
 app.on('web-contents-created', (event, contents) => {
   contents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
-    if (parsedUrl.origin !== 'http://localhost:3000' && !isDev) {
+    if (isDev) {
+      // In dev mode, only allow localhost
+      if (parsedUrl.origin !== 'http://localhost:3000') {
+        event.preventDefault();
+        log.warn('Navigation blocked in dev:', navigationUrl);
+      }
+    } else {
+      // In production, prevent all navigation
       event.preventDefault();
-      log.warn('Navigation blocked:', navigationUrl);
+      log.warn('Navigation blocked in production:', navigationUrl);
     }
   });
 
