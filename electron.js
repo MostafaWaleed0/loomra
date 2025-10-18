@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { DatabaseManager } = require('./electron/database-manager');
 const { setupIpcHandlers } = require('./electron/ipc-handlers');
+const pathManager = require('./electron/path-manager');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -29,7 +30,7 @@ class App {
     this.databaseManager = null;
     this.tray = null;
     this.isQuitting = false;
-    this.updateCheckFile = path.join(app.getPath('userData'), 'last-update-check.json');
+    this.updateCheckFile = pathManager.getUpdateCheckPath();
 
     // Single instance lock
     const gotTheLock = app.requestSingleInstanceLock();
