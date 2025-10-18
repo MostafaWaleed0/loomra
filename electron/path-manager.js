@@ -80,6 +80,14 @@ class PathManager {
   getFilePath(filename) {
     return path.join(this.getUserDataPath(), filename);
   }
+
+  /**
+   * Get path to window state file.
+   * @returns {string} Path to window-state.json.
+   */
+  getWindowStatePath() {
+    return path.join(this.getUserDataPath(), 'window-state.json');
+  }
 }
 
 // Export singleton instance
