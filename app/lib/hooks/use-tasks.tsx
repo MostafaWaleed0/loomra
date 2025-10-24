@@ -10,6 +10,7 @@ import type {
   UseTasksReturn,
   TaskPriority
 } from '../types';
+import { commands } from '../tauri-api';
 
 export function useTasks(): UseTasksReturn {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -19,10 +20,8 @@ export function useTasks(): UseTasksReturn {
   // DATA LOADING - Only on mount
   // ==========================================================================
   const refreshTasks = useCallback(async (): Promise<void> => {
-    if (!window.electronAPI?.tasks) return;
-
     try {
-      const data = await window.electronAPI.tasks.getAllTasks();
+      const data = await commands.tasks.getAllTasks();
       setTasks(data);
     } catch (error) {
       console.error('Failed to load tasks:', error);
@@ -55,7 +54,7 @@ export function useTasks(): UseTasksReturn {
       };
 
       try {
-        const newTask = await window.electronAPI.tasks.createTask(taskData);
+        const newTask = await commands.tasks.createTask(taskData);
         setTasks((prev) => [newTask, ...prev]);
         return newTask;
       } catch (error) {
@@ -82,7 +81,7 @@ export function useTasks(): UseTasksReturn {
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
 
       try {
-        await window.electronAPI.tasks.updateTask(updatedTask);
+        await commands.tasks.updateTask(updatedTask);
       } catch (error) {
         console.error('Failed to edit task:', error);
         setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)));
@@ -105,7 +104,7 @@ export function useTasks(): UseTasksReturn {
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
 
       try {
-        await window.electronAPI.tasks.updateTask(updatedTask);
+        await commands.tasks.updateTask(updatedTask);
       } catch (error) {
         console.error('Failed to toggle task:', error);
         setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)));
@@ -122,7 +121,7 @@ export function useTasks(): UseTasksReturn {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
 
       try {
-        await window.electronAPI.tasks.deleteTask(taskId);
+        await commands.tasks.deleteTask(taskId);
       } catch (error) {
         console.error('Failed to delete task:', error);
         setTasks((prev) => [...prev, task]);

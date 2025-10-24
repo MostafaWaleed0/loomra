@@ -7,7 +7,6 @@ import { HabitView } from './components/habits/habit-view';
 import { LeftSidebar } from './components/layout/left-sidebar';
 import { SidebarRight } from './components/layout/right-sidebar';
 import { SiteHeader } from './components/layout/site-header';
-import { UpdateNotification } from './components/layout/update-notification';
 import { TaskView } from './components/tasks/task-view';
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
 import { useGoals } from './lib/hooks/use-goals';
@@ -15,6 +14,7 @@ import { useHabits } from './lib/hooks/use-habits';
 import { useLocalState } from './lib/hooks/use-local-state';
 import { useTasks } from './lib/hooks/use-tasks';
 import { useUserData } from './lib/hooks/use-user-data';
+import { commands } from './lib/tauri-api';
 import { PasswordVerifyScreen } from './password-verify-screen';
 import { SetupScreen } from './setup-screen';
 
@@ -128,7 +128,7 @@ export default function GoalsTrackerApp() {
 
   // Fetch app version on mount
   useEffect(() => {
-    window.electronAPI.updater
+    commands.updater
       .getAppVersion()
       .then(setVersion)
       .catch((error) => {
@@ -210,7 +210,6 @@ export default function GoalsTrackerApp() {
       <LeftSidebar variant="inset" activeView={activeView} setActiveView={setActiveView} />
       <SidebarInset>
         <SiteHeader activeView={activeView} />
-        <UpdateNotification />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2 p-6">
             {activeView === 'dashboard' && (

@@ -1,5 +1,6 @@
 import { GoalFactory } from '@/lib/goal/goal-factory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { commands } from '../tauri-api';
 import type {
   DeleteStrategy,
   Goal,
@@ -25,10 +26,8 @@ export function useGoals(
   // DATA LOADING - Only on mount
   // ==========================================================================
   const refreshGoals = useCallback(async () => {
-    if (!window.electronAPI?.goals) return;
-
     try {
-      const goalsData = await window.electronAPI.goals.getAllGoals();
+      const goalsData = await commands.goals.getAllGoals();
       setGoals(goalsData || []);
       setValidationErrors({});
 
@@ -97,8 +96,8 @@ export function useGoals(
   // CRUD - Optimistic updates (no refresh)
   // ==========================================================================
   const handleCreateGoal = useCallback(async (payload: Partial<Goal> = { title: 'New Goal' }) => {
-    if (!window.electronAPI?.goals) {
-      setValidationErrors({ general: 'Electron API not available' });
+    if (!commands?.goals) {
+      setValidationErrors({ general: 'API not available' });
       return null;
     }
 
@@ -112,7 +111,7 @@ export function useGoals(
 
       if (!newGoal) throw new Error('Failed to create goal');
 
-      const savedGoal = await window.electronAPI.goals.createGoal(newGoal);
+      const savedGoal = await commands.goals.createGoal(newGoal);
       setGoals((prev) => [savedGoal, ...prev]);
       setSelectedGoalId(savedGoal.id);
 
@@ -126,7 +125,7 @@ export function useGoals(
 
   const handleUpdateGoal = useCallback(
     async (goalId: string, updates: Partial<Goal>) => {
-      if (!window.electronAPI?.goals || !goalId) {
+      if (!commands?.goals || !goalId) {
         setValidationErrors({ general: 'Invalid request' });
         return false;
       }
@@ -143,7 +142,7 @@ export function useGoals(
         // Optimistic update
         setGoals((prev) => prev.map((g) => (g.id === goalId ? updatedGoal : g)));
 
-        await window.electronAPI.goals.updateGoal(updatedGoal);
+        await commands.goals.updateGoal(updatedGoal);
 
         return true;
       } catch (error) {
@@ -159,10 +158,10 @@ export function useGoals(
 
   const handleDeleteGoal = useCallback(
     async (goalId: string, deleteStrategy: DeleteStrategy = 'unlink') => {
-      if (!window.electronAPI?.goals || !goalId) return false;
+      if (!goalId) return false;
 
       try {
-        const success = await window.electronAPI.goals.deleteGoal(goalId, deleteStrategy);
+        const success = await commands.goals.deleteGoal(goalId, deleteStrategy);
 
         if (success) {
           setGoals((prev) => prev.filter((g) => g.id !== goalId));

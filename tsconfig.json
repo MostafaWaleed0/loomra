@@ -23,14 +23,6 @@
       "@/*": ["./app/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "electron.d.ts",
-    "next-env.d.ts",
-    "next.config.mjs",
-    "out/types/**/*.ts"
-  ],
-  "exclude": ["node_modules", "dist", "out"]
+  "include": ["**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "next-env.d.ts", "next.config.mjs", "out/types/**/*.ts"],
+  "exclude": ["node_modules", "src-tauri"]
 }

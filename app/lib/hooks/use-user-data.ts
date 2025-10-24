@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { UserData } from '../types';
+import { commands } from '../tauri-api';
 
 export function useUserData() {
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -12,7 +13,7 @@ export function useUserData() {
     const loadUserData = async () => {
       try {
         setIsLoading(true);
-        const data = await window.electronAPI.userData.get();
+        const data = await commands.userData.get();
         setUserData(data);
         // User exists but not authenticated yet
         setIsAuthenticated(false);
@@ -33,7 +34,7 @@ export function useUserData() {
       const { password, ...userInfo } = data;
 
       // Hash password in main process
-      const hashedPassword = await window.electronAPI.auth.hashPassword(password);
+      const hashedPassword = await commands.auth.hashPassword(password);
 
       const dataWithTimestamp = {
         ...userInfo,
@@ -41,7 +42,7 @@ export function useUserData() {
         createdAt: data.createdAt || new Date().toISOString()
       };
 
-      await window.electronAPI.userData.save(dataWithTimestamp);
+      await commands.userData.save(dataWithTimestamp);
       setUserData(dataWithTimestamp);
       setIsAuthenticated(true);
       setError(null);
@@ -61,7 +62,7 @@ export function useUserData() {
           return false;
         }
 
-        const isValid = await window.electronAPI.auth.verifyPassword(password, userData.passwordHash);
+        const isValid = await commands.auth.verifyPassword(password, userData.passwordHash);
 
         if (isValid) {
           setIsAuthenticated(true);
@@ -85,17 +86,17 @@ export function useUserData() {
         }
 
         // Verify current password
-        const isValid = await window.electronAPI.auth.verifyPassword(currentPassword, userData.passwordHash);
+        const isValid = await commands.auth.verifyPassword(currentPassword, userData.passwordHash);
 
         if (!isValid) {
           return { success: false, error: 'Current password is incorrect' };
         }
 
         // Hash new password
-        const newHashedPassword = await window.electronAPI.auth.hashPassword(newPassword);
+        const newHashedPassword = await commands.auth.hashPassword(newPassword);
 
         // Update user data
-        await window.electronAPI.userData.update('passwordHash', newHashedPassword);
+        await commands.userData.update('passwordHash', newHashedPassword);
         setUserData((prev) => (prev ? { ...prev, passwordHash: newHashedPassword } : null));
         setError(null);
 
@@ -112,7 +113,7 @@ export function useUserData() {
   // Update specific field (excluding password)
   const updateUserData = useCallback(async (field: keyof Omit<UserData, 'passwordHash'>, value: any) => {
     try {
-      await window.electronAPI.userData.update(field, value);
+      await commands.userData.update(field, value);
       setUserData((prev) => (prev ? { ...prev, [field]: value } : null));
       setError(null);
       return { success: true };
@@ -131,7 +132,7 @@ export function useUserData() {
   // Delete user data (logout/reset)
   const deleteUserData = useCallback(async () => {
     try {
-      await window.electronAPI.userData.delete();
+      await commands.userData.delete();
       setUserData(null);
       setIsAuthenticated(false);
       setError(null);
