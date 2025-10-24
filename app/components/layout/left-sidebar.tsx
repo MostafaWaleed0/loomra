@@ -27,7 +27,6 @@ export function LeftSidebar({ activeView, setActiveView, ...props }: any) {
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-    window.electronAPI.setTheme(newTheme);
   };
 
   return (

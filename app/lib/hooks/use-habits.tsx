@@ -13,6 +13,7 @@ import type {
   UseHabitsReturn
 } from '@/lib/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { commands } from '../tauri-api';
 
 // ============================================================================
 // HABIT STATS CALCULATOR
@@ -224,10 +225,8 @@ export function useHabits(): UseHabitsReturn {
 
   const loadAllCompletions = useCallback(async (): Promise<HabitCompletion[]> => {
     try {
-      const allHabits = await window.electronAPI.habits.getAllHabits();
-      const completionPromises = allHabits.map((habit) =>
-        window.electronAPI.habitCompletions.getHabitCompletions(habit.id, null, null)
-      );
+      const allHabits = await commands.habits.getAllHabits();
+      const completionPromises = allHabits.map((habit) => commands.habitCompletions.getHabitCompletions(habit.id, null, null));
       const completionArrays = await Promise.all(completionPromises);
       return completionArrays.flat();
     } catch (error) {
@@ -238,7 +237,7 @@ export function useHabits(): UseHabitsReturn {
 
   const loadInitialData = useCallback(async (): Promise<void> => {
     try {
-      const [loadedHabits, allCompletions] = await Promise.all([window.electronAPI.habits.getAllHabits(), loadAllCompletions()]);
+      const [loadedHabits, allCompletions] = await Promise.all([commands.habits.getAllHabits(), loadAllCompletions()]);
 
       setHabits(loadedHabits);
       setCompletions(allCompletions);
@@ -269,12 +268,12 @@ export function useHabits(): UseHabitsReturn {
 
         let savedHabit: Habit;
         if (existingHabit) {
-          savedHabit = await window.electronAPI.habits.updateHabit(normalizedHabit);
+          savedHabit = await commands.habits.updateHabit(normalizedHabit);
 
           setHabits((prev) => prev.map((h) => (h.id === existingHabit.id ? savedHabit : h)));
           habitsCacheRef.current.set(savedHabit.id, savedHabit);
         } else {
-          savedHabit = await window.electronAPI.habits.createHabit(normalizedHabit);
+          savedHabit = await commands.habits.createHabit(normalizedHabit);
 
           setHabits((prev) => [...prev, savedHabit]);
           habitsCacheRef.current.set(savedHabit.id, savedHabit);
@@ -305,7 +304,7 @@ export function useHabits(): UseHabitsReturn {
       }
 
       try {
-        await window.electronAPI.habits.deleteHabit(habitId);
+        await commands.habits.deleteHabit(habitId);
       } catch (error) {
         console.error('Failed to delete habit:', error);
 
@@ -357,7 +356,7 @@ export function useHabits(): UseHabitsReturn {
           })
         );
 
-        await window.electronAPI.habits.updateHabit(updatedHabit);
+        await commands.habits.updateHabit(updatedHabit);
       } catch (error) {
         console.error('Failed to update habit stats:', error);
       }
@@ -388,7 +387,7 @@ export function useHabits(): UseHabitsReturn {
 
           setCompletions((prev) => prev.map((r) => (r.id === existingRecord.id ? updatedRecord : r)));
 
-          savedRecord = await window.electronAPI.habitCompletions.updateHabitCompletion(updatedRecord);
+          savedRecord = await commands.habitCompletions.updateHabitCompletion(updatedRecord);
 
           setCompletions((prev) => prev.map((r) => (r.id === existingRecord.id ? savedRecord : r)));
         } else {
@@ -400,7 +399,7 @@ export function useHabits(): UseHabitsReturn {
 
           setCompletions((prev) => [...prev, newRecord]);
 
-          savedRecord = await window.electronAPI.habitCompletions.createHabitCompletion(newRecord);
+          savedRecord = await commands.habitCompletions.createHabitCompletion(newRecord);
 
           setCompletions((prev) => prev.map((r) => (r.habitId === habitId && r.completedAt === date ? savedRecord : r)));
         }
