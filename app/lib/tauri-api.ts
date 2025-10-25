@@ -49,7 +49,12 @@ interface HabitsAPI {
 }
 
 interface HabitCompletionsAPI {
-  getHabitCompletions: (habitId: string, startDate: DateString | null, endDate: DateString | null) => Promise<HabitCompletion[]>;
+  getHabitCompletions: (
+    habitId: string,
+    startDate: DateString | null,
+    endDate: DateString | null,
+    limit?: number
+  ) => Promise<HabitCompletion[]>;
   getCompletionByDate: (habitId: string, date: DateString) => Promise<HabitCompletion | null>;
   getHabitStreak: (habitId: string) => Promise<number>;
   createHabitCompletion: (completion: HabitCompletion) => Promise<HabitCompletion>;
@@ -135,7 +140,8 @@ const tauriAPI: TauriAPI = {
     createHabitCompletion: (completion) => invoke('create_habit_completion', { completion }),
     updateHabitCompletion: (completion) => invoke('update_habit_completion', { completion }),
     deleteHabitCompletion: (id) => invoke('delete_habit_completion', { id }),
-    getHabitCompletions: (habitId, startDate, endDate) => invoke('get_habit_completions', { habitId, startDate, endDate }),
+    getHabitCompletions: (habitId, startDate, endDate, limit) =>
+      invoke('get_habit_completions', { habitId, startDate, endDate, limit }),
     getCompletionByDate: (habitId, date) => invoke('get_completion_by_date', { habitId, date }),
     getHabitStreak: (habitId) => invoke('get_habit_streak', { habitId })
   },

@@ -34,7 +34,8 @@ pub async fn create_task(
     state: tauri::State<'_, AppState>,
     task: Task,
 ) -> Result<Task, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     db.execute(
         "INSERT INTO tasks (id, title, done, goal_id, due_date, priority, created_at)
@@ -59,7 +60,8 @@ pub async fn update_task(
     state: tauri::State<'_, AppState>,
     task: Task,
 ) -> Result<Task, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let rows = db.execute(
         "UPDATE tasks SET
@@ -89,7 +91,8 @@ pub async fn delete_task(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<bool, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let rows_affected = db
         .execute("DELETE FROM tasks WHERE id = ?1", params![id])
@@ -102,7 +105,8 @@ pub async fn delete_task(
 pub async fn get_all_tasks(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<Task>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM tasks ORDER BY created_at DESC")
@@ -122,7 +126,8 @@ pub async fn get_task_by_id(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<Option<Task>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let task = db
         .query_row(
@@ -141,7 +146,8 @@ pub async fn get_tasks_by_goal_id(
     state: tauri::State<'_, AppState>,
     goal_id: String,
 ) -> Result<Vec<Task>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM tasks WHERE goal_id = ?1 ORDER BY created_at DESC")
@@ -161,7 +167,8 @@ pub async fn get_tasks_by_status(
     state: tauri::State<'_, AppState>,
     done: bool,
 ) -> Result<Vec<Task>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM tasks WHERE done = ?1 ORDER BY created_at DESC")
@@ -181,7 +188,8 @@ pub async fn toggle_task_status(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<bool, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let rows = db.execute(
         "UPDATE tasks SET done = NOT done WHERE id = ?1",

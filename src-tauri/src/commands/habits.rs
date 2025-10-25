@@ -85,7 +85,8 @@ pub async fn create_habit(
     state: tauri::State<'_, AppState>,
     habit: Habit,
 ) -> Result<Habit, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let frequency_value = habit.serialize_frequency_value()?;
     let linked_goals = habit.serialize_linked_goals()?;
@@ -126,7 +127,8 @@ pub async fn update_habit(
     state: tauri::State<'_, AppState>,
     habit: Habit,
 ) -> Result<Habit, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let frequency_value = habit.serialize_frequency_value()?;
     let linked_goals = habit.serialize_linked_goals()?;
@@ -171,7 +173,8 @@ pub async fn delete_habit(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<bool, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     // Habit completions will be automatically deleted due to ON DELETE CASCADE
     let rows_affected = db
@@ -185,7 +188,8 @@ pub async fn delete_habit(
 pub async fn get_all_habits(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<Habit>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM habits ORDER BY created_at DESC")
@@ -205,7 +209,8 @@ pub async fn get_habit_by_id(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<Option<Habit>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let habit = db
         .query_row(
@@ -224,7 +229,8 @@ pub async fn get_habits_by_category(
     state: tauri::State<'_, AppState>,
     category: String,
 ) -> Result<Vec<Habit>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM habits WHERE category = ?1 ORDER BY created_at DESC")
