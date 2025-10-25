@@ -13,7 +13,7 @@
     "active": true,
     "category": "Productivity",
     "copyright": "",
-    "icon": ["icons.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
     "targets": "all",
     "windows": {
       "certificateThumbprint": null,
