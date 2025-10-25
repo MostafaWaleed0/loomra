@@ -1,11 +1,11 @@
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, Result as SqlResult};
-use std::sync::Arc;
 use tauri::{AppHandle, Manager};
-use tokio::sync::Mutex;
 
-/// Application state holding the database connection
+/// Application state holding the database connection pool
 pub struct AppState {
-    pub db: Arc<Mutex<Connection>>,
+    pub db: Pool<SqliteConnectionManager>,
 }
 
 /// Custom error type for database operations
@@ -19,6 +19,9 @@ pub enum DatabaseError {
 
     #[error("Path error: {0}")]
     Path(String),
+
+    #[error("Pool error: {0}")]
+    Pool(String),
 }
 
 impl From<DatabaseError> for String {
@@ -27,7 +30,7 @@ impl From<DatabaseError> for String {
     }
 }
 
-/// Initialize the database with proper error handling
+/// Initialize the database with proper error handling and connection pooling
 pub fn init_database(app_handle: &AppHandle) -> Result<(), DatabaseError> {
     let app_dir = app_handle
         .path()
@@ -37,18 +40,24 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), DatabaseError> {
     std::fs::create_dir_all(&app_dir)?;
 
     let db_path = app_dir.join("loomra.db");
-    let conn = Connection::open(db_path)?;
 
-    // Configure connection
-    configure_connection(&conn)?;
+    // Create connection pool
+    let manager = SqliteConnectionManager::file(&db_path);
+    let pool = Pool::builder()
+        .max_size(10)
+        .connection_timeout(std::time::Duration::from_secs(30))
+        .build(manager)
+        .map_err(|e| DatabaseError::Pool(e.to_string()))?;
 
-    // Create schema
-    create_schema(&conn)?;
+    // Configure first connection and set up schema
+    {
+        let conn = pool.get().map_err(|e| DatabaseError::Pool(e.to_string()))?;
+        configure_connection(&conn)?;
+        create_schema(&conn)?;
+    }
 
-    // Store connection in app state using Arc<Mutex> for async safety
-    app_handle.manage(AppState {
-        db: Arc::new(Mutex::new(conn)),
-    });
+    // Store connection pool in app state
+    app_handle.manage(AppState { db: pool });
 
     Ok(())
 }
@@ -60,6 +69,8 @@ fn configure_connection(conn: &Connection) -> SqlResult<()> {
     conn.pragma_update(None, "synchronous", "NORMAL")?;
     conn.pragma_update(None, "cache_size", -64000)?; // 64MB cache
     conn.pragma_update(None, "temp_store", "MEMORY")?;
+    conn.pragma_update(None, "mmap_size", 268435456i64)?; // 256MB memory-mapped I/O
+    conn.pragma_update(None, "page_size", 4096)?;
     Ok(())
 }
 
@@ -130,7 +141,7 @@ fn create_tables(conn: &Connection) -> SqlResult<()> {
         [],
     )?;
 
-    // Habit completions table
+    // Habit completions table (updated with TEXT for mood and difficulty)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS habit_completions (
             id TEXT PRIMARY KEY,
@@ -141,8 +152,8 @@ fn create_tables(conn: &Connection) -> SqlResult<()> {
             target_amount REAL NOT NULL DEFAULT 1.0,
             completed_at TEXT,
             note TEXT NOT NULL DEFAULT '',
-            mood INTEGER,
-            difficulty INTEGER,
+            mood TEXT,
+            difficulty TEXT,
             skipped INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
@@ -162,12 +173,14 @@ fn create_indexes(conn: &Connection) -> SqlResult<()> {
         "CREATE INDEX IF NOT EXISTS idx_tasks_goal_id ON tasks(goal_id)",
         "CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)",
         "CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks(done)",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_goal_done ON tasks(goal_id, done, due_date)",
 
         // Goal indexes
         "CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status)",
         "CREATE INDEX IF NOT EXISTS idx_goals_category ON goals(category)",
         "CREATE INDEX IF NOT EXISTS idx_goals_deadline ON goals(deadline)",
         "CREATE INDEX IF NOT EXISTS idx_goals_priority ON goals(priority)",
+        "CREATE INDEX IF NOT EXISTS idx_goals_status_priority ON goals(status, priority, deadline)",
 
         // Habit indexes
         "CREATE INDEX IF NOT EXISTS idx_habits_category ON habits(category)",
@@ -177,6 +190,8 @@ fn create_indexes(conn: &Connection) -> SqlResult<()> {
         "CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_id ON habit_completions(habit_id)",
         "CREATE INDEX IF NOT EXISTS idx_habit_completions_date ON habit_completions(date)",
         "CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_date ON habit_completions(habit_id, date)",
+        "CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_completed ON habit_completions(habit_id, completed, date DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_habit_completions_streak ON habit_completions(habit_id, date DESC, completed)",
     ];
 
     for index_sql in indexes {

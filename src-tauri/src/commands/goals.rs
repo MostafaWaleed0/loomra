@@ -1,5 +1,5 @@
 use crate::database::AppState;
-use rusqlite::{params, OptionalExtension, Row};
+use rusqlite::{params, OptionalExtension, Row, Transaction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +51,8 @@ pub async fn create_goal(
     state: tauri::State<'_, AppState>,
     goal: Goal,
 ) -> Result<Goal, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     db.execute(
         "INSERT INTO goals (
@@ -83,7 +84,8 @@ pub async fn update_goal(
     state: tauri::State<'_, AppState>,
     goal: Goal,
 ) -> Result<Goal, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let rows = db.execute(
         "UPDATE goals SET
@@ -120,7 +122,8 @@ pub async fn delete_goal(
     id: String,
     delete_strategy: Option<String>,
 ) -> Result<bool, String> {
-    let db = state.db.lock().await;
+    let mut db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     // Parse delete strategy
     let strategy = match delete_strategy.as_deref() {
@@ -128,35 +131,42 @@ pub async fn delete_goal(
         _ => DeleteStrategy::Nullify,
     };
 
+    // Use transaction for atomic operations
+    let tx = db.transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
+
     // Remove goal from habits' linked_goals
-    update_habit_linked_goals(&db, &id)?;
+    update_habit_linked_goals_tx(&tx, &id)?;
 
     // Handle associated tasks based on strategy
     match strategy {
         DeleteStrategy::Cascade => {
-            db.execute("DELETE FROM tasks WHERE goal_id = ?1", params![id])
+            tx.execute("DELETE FROM tasks WHERE goal_id = ?1", params![id])
                 .map_err(|e| format!("Failed to delete associated tasks: {}", e))?;
         }
         DeleteStrategy::Nullify => {
-            db.execute("UPDATE tasks SET goal_id = NULL WHERE goal_id = ?1", params![id])
+            tx.execute("UPDATE tasks SET goal_id = NULL WHERE goal_id = ?1", params![id])
                 .map_err(|e| format!("Failed to nullify task goal references: {}", e))?;
         }
     }
 
     // Delete the goal
-    let rows_affected = db
+    let rows_affected = tx
         .execute("DELETE FROM goals WHERE id = ?1", params![id])
         .map_err(|e| format!("Failed to delete goal: {}", e))?;
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit transaction: {}", e))?;
 
     Ok(rows_affected > 0)
 }
 
-/// Remove a goal ID from all habits' linked_goals arrays
-fn update_habit_linked_goals(
-    db: &rusqlite::Connection,
+/// Remove a goal ID from all habits' linked_goals arrays (within transaction)
+fn update_habit_linked_goals_tx(
+    tx: &Transaction,
     goal_id: &str,
 ) -> Result<(), String> {
-    let mut stmt = db
+    let mut stmt = tx
         .prepare("SELECT id, linked_goals FROM habits")
         .map_err(|e| format!("Failed to query habits: {}", e))?;
 
@@ -166,6 +176,8 @@ fn update_habit_linked_goals(
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to collect habits: {}", e))?;
 
+    drop(stmt); // Drop the statement before executing updates
+
     for (habit_id, linked_goals_str) in habits {
         if let Ok(mut linked_goals) = serde_json::from_str::<Vec<String>>(&linked_goals_str) {
             if linked_goals.contains(&goal_id.to_string()) {
@@ -173,7 +185,7 @@ fn update_habit_linked_goals(
                 let updated_json = serde_json::to_string(&linked_goals)
                     .map_err(|e| format!("Failed to serialize linked goals: {}", e))?;
 
-                db.execute(
+                tx.execute(
                     "UPDATE habits SET linked_goals = ?1 WHERE id = ?2",
                     params![updated_json, habit_id],
                 )
@@ -189,7 +201,8 @@ fn update_habit_linked_goals(
 pub async fn get_all_goals(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<Goal>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM goals ORDER BY created_at DESC")
@@ -209,7 +222,8 @@ pub async fn get_goal_by_id(
     state: tauri::State<'_, AppState>,
     id: String,
 ) -> Result<Option<Goal>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let goal = db
         .query_row(
@@ -228,7 +242,8 @@ pub async fn get_goals_by_status(
     state: tauri::State<'_, AppState>,
     status: String,
 ) -> Result<Vec<Goal>, String> {
-    let db = state.db.lock().await;
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let mut stmt = db
         .prepare("SELECT * FROM goals WHERE status = ?1 ORDER BY created_at DESC")
