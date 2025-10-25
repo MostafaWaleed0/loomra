@@ -15,6 +15,7 @@
     "copyright": "",
     "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
