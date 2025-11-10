@@ -43,7 +43,7 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
         maxLength={maxLength}
         required={required}
         aria-required={required}
-        aria-invalid={!!error}
+        aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
         className={cn(error && 'border-destructive', 'h-30 whitespace-pre-wrap break-words resize-y')}
       />

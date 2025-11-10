@@ -153,7 +153,7 @@ export function useTasks(): UseTasksReturn {
       const createdDate = new Date(task.createdAt);
       const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 
-      const isOverdue = !!(dueDate && dueDate < now && !task.done);
+      const isOverdue = Boolean(dueDate && dueDate < now && !task.done);
       const daysSinceCreated = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
       const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
 

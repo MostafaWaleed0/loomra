@@ -44,7 +44,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
         maxLength={maxLength}
         required={required}
         aria-required={required}
-        aria-invalid={!!error}
+        aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
       />
       <div className="fle justify-between items-center">
