@@ -194,9 +194,9 @@ export default function GoalsTrackerApp() {
   );
 
   // Render password verification screen
-  // if (showPasswordVerify && userData?.name) {
-  //   return <PasswordVerifyScreen onVerify={handlePasswordVerify} userName={userData.name} />;
-  // }
+  if (showPasswordVerify && userData?.name) {
+    return <PasswordVerifyScreen onVerify={handlePasswordVerify} userName={userData.name} />;
+  }
 
   // Render setup screen for new users
   if (showSetup) {
