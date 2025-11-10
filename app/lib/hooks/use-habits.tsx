@@ -14,6 +14,7 @@ import type {
 } from '@/lib/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { commands } from '../tauri-api';
+import { useSettings } from '../context/settings-context';
 
 // ============================================================================
 // HABIT STATS CALCULATOR
@@ -203,6 +204,7 @@ export class HabitStatsCalculator {
 // ============================================================================
 
 export function useHabits(): UseHabitsReturn {
+  const { settings } = useSettings();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
   const [selectedDate, setSelectedDate] = useState<DateString>(DateUtils.getCurrentDateString());
@@ -263,7 +265,7 @@ export function useHabits(): UseHabitsReturn {
   const handleSaveHabit = useCallback(
     async (habitData: HabitFormData | null, existingHabit: Habit | null = null): Promise<Habit> => {
       try {
-        const normalizedHabit = HabitFactory.create(habitData as HabitFormData, existingHabit || undefined);
+        const normalizedHabit = HabitFactory.create(habitData as HabitFormData, existingHabit || undefined, settings.habits);
         if (!normalizedHabit) throw new Error('Failed to create habit');
 
         let savedHabit: Habit;
@@ -285,7 +287,7 @@ export function useHabits(): UseHabitsReturn {
         throw error;
       }
     },
-    []
+    [settings]
   );
 
   const handleDeleteHabit = useCallback(

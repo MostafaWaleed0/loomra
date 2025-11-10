@@ -1,32 +1,52 @@
-import { HABIT_CONFIG, UI_CONFIG, SYSTEM_CONSTANTS } from '../core/constants';
+import type {
+  DateString,
+  FormValidationResult,
+  Habit,
+  HabitCategory,
+  HabitFormData,
+  HabitFrequency,
+  HabitFrequencyType,
+  HabitPriority,
+  HabitReminder,
+  HabitUnit,
+  IconName,
+  ValidationResult
+} from '@/lib/types';
+import { HABIT_CONFIG, SYSTEM_CONSTANTS, UI_CONFIG } from '../core/constants';
 import { DateUtils } from '../core/date-utils';
 import { generateId } from '../core/id-generator';
 import { ValidationUtils } from '../core/validation-utils';
+import type { AppSettings } from '../tauri-api';
 import { HabitFrequencyManager } from './frequency-system';
-import type {
-  Habit,
-  HabitFormData,
-  HabitFrequency,
-  HabitCategory,
-  HabitUnit,
-  HabitPriority,
-  IconName,
-  HabitReminder,
-  ValidationResult,
-  FormValidationResult,
-  DateString,
-  HabitFrequencyType
-} from '@/lib/types';
 
 export class HabitFactory {
-  // Core Field Validators
+  private static getDefaultReminder(settings?: AppSettings['habits']): HabitReminder {
+    if (settings) {
+      return {
+        enabled: settings.defaultReminder,
+        time: settings.defaultReminderTime
+      };
+    }
+    return {
+      enabled: false,
+      time: HABIT_CONFIG.DEFAULTS.REMINDER.time
+    };
+  }
+
+  private static getDefaultPriority(settings?: AppSettings['habits']): HabitPriority {
+    if (settings?.defaultPriority) {
+      return settings.defaultPriority as HabitPriority;
+    }
+    return HABIT_CONFIG.PRIORITIES[1];
+  }
+
   static validators = {
     name: (value: any): ValidationResult<string> => {
       try {
         const sanitized = ValidationUtils.sanitizeString(value) || '';
         if (sanitized.length < SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
           return {
-            value: '',
+            value: 'Untitled habit',
             isValid: false,
             error: `Name must be at least ${SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`
           };
@@ -86,12 +106,13 @@ export class HabitFactory {
       };
     },
 
-    priority: (value: any): ValidationResult<HabitPriority> => {
+    priority: (value: any, settings?: AppSettings['habits']): ValidationResult<HabitPriority> => {
       const isValid = HABIT_CONFIG.PRIORITIES.includes(value);
+      const defaultPriority = HabitFactory.getDefaultPriority(settings);
       return {
-        value: isValid ? value : HABIT_CONFIG.PRIORITIES[1],
+        value: isValid ? value : defaultPriority,
         isValid,
-        error: isValid ? undefined : `Invalid priority. Using default: ${HABIT_CONFIG.PRIORITIES[1]}`
+        error: isValid ? undefined : `Invalid priority. Using default: ${defaultPriority}`
       };
     },
 
@@ -153,15 +174,16 @@ export class HabitFactory {
       }
     },
 
-    reminder: (value: any): ValidationResult<HabitReminder> => {
-      const defaultReminder: HabitReminder = { enabled: false, time: HABIT_CONFIG.DEFAULTS.REMINDER.time };
+    reminder: (value: any, settings?: AppSettings['habits']): ValidationResult<HabitReminder> => {
+      const defaultReminder = HabitFactory.getDefaultReminder(settings);
+
       if (!value) {
         return { value: defaultReminder, isValid: true };
       }
       try {
         const enabled = Boolean(value.enabled);
         const timeValidation = DateUtils.parseTime(value.time || '');
-        const time = timeValidation ? value.time : HABIT_CONFIG.DEFAULTS.REMINDER.time;
+        const time = timeValidation ? value.time : defaultReminder.time;
         return {
           value: { enabled, time },
           isValid: !!timeValidation,
@@ -241,7 +263,6 @@ export class HabitFactory {
     }
   };
 
-  // Frequency Object Validation
   static validateFrequencyObject(frequency: any): ValidationResult<HabitFrequency> {
     if (!frequency || typeof frequency !== 'object') {
       return { value: HabitFrequencyManager.createDefaultFrequency(), isValid: false };
@@ -266,37 +287,37 @@ export class HabitFactory {
     }
   }
 
-  // Clean Public API
   static validate = {
-    name: (value: any): string => this.validators.name(value).value,
-    targetAmount: (value: any): number => this.validators.targetAmount(value).value,
-    category: (value: any): HabitCategory => this.validators.category(value).value,
-    unit: (value: any): HabitUnit => this.validators.unit(value).value,
-    priority: (value: any): HabitPriority => this.validators.priority(value).value,
-    notes: (value: any): string => this.validators.notes(value).value,
-    icon: (value: any): IconName => this.validators.icon(value).value,
-    color: (value: any): string => this.validators.color(value).value,
-    startDate: (value: any): DateString => this.validators.startDate(value).value,
-    reminder: (value: any): HabitReminder => this.validators.reminder(value).value,
-    linkedGoals: (value: any): string[] => this.validators.linkedGoals(value).value,
-    frequency: (value: any): HabitFrequency => this.validators.frequency(value).value
+    name: (value: any, _settings?: AppSettings['habits']): string => HabitFactory.validators.name(value).value,
+    targetAmount: (value: any, _settings?: AppSettings['habits']): number => HabitFactory.validators.targetAmount(value).value,
+    category: (value: any, _settings?: AppSettings['habits']): HabitCategory => HabitFactory.validators.category(value).value,
+    unit: (value: any, _settings?: AppSettings['habits']): HabitUnit => HabitFactory.validators.unit(value).value,
+    priority: (value: any, settings?: AppSettings['habits']): HabitPriority =>
+      HabitFactory.validators.priority(value, settings).value,
+    notes: (value: any, _settings?: AppSettings['habits']): string => HabitFactory.validators.notes(value).value,
+    icon: (value: any, _settings?: AppSettings['habits']): IconName => HabitFactory.validators.icon(value).value,
+    color: (value: any, _settings?: AppSettings['habits']): string => HabitFactory.validators.color(value).value,
+    startDate: (value: any, _settings?: AppSettings['habits']): DateString => HabitFactory.validators.startDate(value).value,
+    reminder: (value: any, settings?: AppSettings['habits']): HabitReminder =>
+      HabitFactory.validators.reminder(value, settings).value,
+    linkedGoals: (value: any, _settings?: AppSettings['habits']): string[] => HabitFactory.validators.linkedGoals(value).value,
+    frequency: (value: any, _settings?: AppSettings['habits']): HabitFrequency => HabitFactory.validators.frequency(value).value
   };
 
-  // Validate form with errors
-  static validateForm(data: Partial<HabitFormData>): FormValidationResult<Habit> {
+  static validateForm(data: Partial<HabitFormData>, settings?: AppSettings['habits']): FormValidationResult<Habit> {
     const results = {
-      name: this.validators.name(data.name || ''),
-      targetAmount: this.validators.targetAmount(data.targetAmount || ''),
-      category: this.validators.category(data.category || ''),
-      unit: this.validators.unit(data.unit || ''),
-      priority: this.validators.priority(data.priority || ''),
-      notes: this.validators.notes(data.notes || ''),
-      icon: this.validators.icon(data.icon || ''),
-      color: this.validators.color(data.color || ''),
-      startDate: this.validators.startDate(data.startDate || ''),
-      reminder: this.validators.reminder(data.reminder || { enabled: false, time: '' }),
-      linkedGoals: this.validators.linkedGoals(data.linkedGoals || []),
-      frequency: this.validators.frequency(data.frequency || {})
+      name: HabitFactory.validators.name(data.name || ''),
+      targetAmount: HabitFactory.validators.targetAmount(data.targetAmount || ''),
+      category: HabitFactory.validators.category(data.category || ''),
+      unit: HabitFactory.validators.unit(data.unit || ''),
+      priority: HabitFactory.validators.priority(data.priority || '', settings),
+      notes: HabitFactory.validators.notes(data.notes || ''),
+      icon: HabitFactory.validators.icon(data.icon || ''),
+      color: HabitFactory.validators.color(data.color || ''),
+      startDate: HabitFactory.validators.startDate(data.startDate || ''),
+      reminder: HabitFactory.validators.reminder(data.reminder || { enabled: false, time: '' }, settings),
+      linkedGoals: HabitFactory.validators.linkedGoals(data.linkedGoals || []),
+      frequency: HabitFactory.validators.frequency(data.frequency || {})
     };
 
     const errors = Object.entries(results)
@@ -315,32 +336,34 @@ export class HabitFactory {
     };
   }
 
-  static create(data: Partial<HabitFormData>, existing?: Habit): Habit | null {
+  static create(data?: Partial<HabitFormData>, existing?: Habit, settings?: AppSettings['habits']): Habit | null {
     try {
       const now = new Date().toISOString();
+
       return {
         id: existing?.id ?? generateId('habit'),
-        name: this.validate.name(data.name),
-        category: this.validate.category(data.category),
-        icon: this.validate.icon(data.icon),
-        color: this.validate.color(data.color),
-        targetAmount: this.validate.targetAmount(data.targetAmount),
-        unit: this.validate.unit(data.unit),
-        frequency: this.validate.frequency(data.frequency),
-        priority: this.validate.priority(data.priority),
-        notes: this.validate.notes(data.notes),
-        linkedGoals: this.validate.linkedGoals(data.linkedGoals),
-        startDate: this.validate.startDate(data.startDate),
-        reminder: this.validate.reminder(data.reminder),
+        name: HabitFactory.validate.name(data?.name, settings),
+        category: HabitFactory.validate.category(data?.category, settings),
+        icon: HabitFactory.validate.icon(data?.icon, settings),
+        color: HabitFactory.validate.color(data?.color, settings),
+        targetAmount: HabitFactory.validate.targetAmount(data?.targetAmount, settings),
+        unit: HabitFactory.validate.unit(data?.unit, settings),
+        frequency: HabitFactory.validate.frequency(data?.frequency, settings),
+        priority: HabitFactory.validate.priority(data?.priority, settings),
+        notes: HabitFactory.validate.notes(data?.notes, settings),
+        linkedGoals: HabitFactory.validate.linkedGoals(data?.linkedGoals, settings),
+        startDate: HabitFactory.validate.startDate(data?.startDate, settings),
+        reminder: HabitFactory.validate.reminder(data?.reminder, settings),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now
       };
-    } catch {
+    } catch (error) {
+      console.error('Failed to create habit:', error);
       return null;
     }
   }
 
-  static update(existing: Habit, updates: Partial<HabitFormData>): Habit | null {
-    return this.create(updates, existing);
+  static update(existing: Habit, updates: Partial<HabitFormData>, settings?: AppSettings['habits']): Habit | null {
+    return HabitFactory.create(updates, existing, settings);
   }
 }

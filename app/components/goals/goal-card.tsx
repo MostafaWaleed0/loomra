@@ -10,9 +10,10 @@ interface GoalCardProps {
   goal: GoalWithStats;
   onClick: () => void;
   onEdit: () => void;
+  showProgressPercentage: boolean;
 }
 
-export function GoalCard({ goal, onClick, onEdit }: GoalCardProps) {
+export function GoalCard({ goal, onClick, onEdit, showProgressPercentage }: GoalCardProps) {
   const Icon = UIUtils.getIconComponent(goal.icon);
 
   function handleEditClick() {
@@ -54,14 +55,18 @@ export function GoalCard({ goal, onClick, onEdit }: GoalCardProps) {
       </CardHeader>
       <CardContent className="mt-auto">
         <div className="space-y-1 pb-1 border-b text-sm">
-          <div className="flex items-center justify-between font-semibold">
-            <div className="flex items-center gap-1">
-              <TrendingUp className="size-4 text-muted-foreground" />
-              Progress
-            </div>
-            <span>{goal.progress}%</span>
-          </div>
-          <Progress value={goal.progress} className="h-2" />
+          {showProgressPercentage && (
+            <>
+              <div className="flex items-center justify-between font-semibold">
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="size-4 text-muted-foreground" />
+                  Progress
+                </div>
+                <span>{goal.progress}%</span>
+              </div>
+              <Progress value={goal.progress} className="h-2" />
+            </>
+          )}
           <span className="text-muted-foreground capitalize text-xs font-medium">
             {goal.completedTaskCount}/{goal.taskCount} tasks completed
           </span>

@@ -5,3 +5,4 @@ pub mod habit_completions;
 pub mod habits;
 pub mod tasks;
 pub mod user_data;
+pub mod settings;

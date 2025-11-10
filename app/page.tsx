@@ -17,6 +17,8 @@ import { useUserData } from './lib/hooks/use-user-data';
 import { commands } from './lib/tauri-api';
 import { PasswordVerifyScreen } from './password-verify-screen';
 import { SetupScreen } from './setup-screen';
+import { SettingView } from './components/setting/setting-view';
+import { useSettings } from './lib/context/settings-context';
 
 // Constants
 const SPLASH_SCREEN_DURATION = 2000;
@@ -107,8 +109,9 @@ function SplashScreen({ version }: { version: string | null }) {
 
 // Main App Component
 export default function GoalsTrackerApp() {
-  // UI State
+  const { settings } = useSettings();
   const [activeView, setActiveView] = useLocalState('active-view', 'goals');
+  const [isSettingVisible, setSettingVisible] = useState(false);
   const [open, setOpen] = useLocalState<boolean>('left-sidebar-open', true);
   const [isInitializing, setIsInitializing] = useState(true);
   const [version, setVersion] = useState<string | null>(null);
@@ -119,7 +122,7 @@ export default function GoalsTrackerApp() {
   const { userData, isLoading: isUserDataLoading, saveUserData, verifyPassword, isAuthenticated } = useUserData();
   const habitsCtx = useHabits();
   const tasksCtx = useTasks();
-  const goalsCtx = useGoals(tasksCtx.tasks, tasksCtx.refreshTasks, habitsCtx.refreshHabits);
+  const goalsCtx = useGoals(tasksCtx.tasks, tasksCtx.refreshTasks, habitsCtx.refreshHabits, settings.goals);
 
   // Check if all data is loaded
   const isDataLoaded = useMemo(() => {
@@ -191,9 +194,9 @@ export default function GoalsTrackerApp() {
   );
 
   // Render password verification screen
-  if (showPasswordVerify && userData?.name) {
-    return <PasswordVerifyScreen onVerify={handlePasswordVerify} userName={userData.name} />;
-  }
+  // if (showPasswordVerify && userData?.name) {
+  //   return <PasswordVerifyScreen onVerify={handlePasswordVerify} userName={userData.name} />;
+  // }
 
   // Render setup screen for new users
   if (showSetup) {
@@ -207,7 +210,13 @@ export default function GoalsTrackerApp() {
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen} style={sidebarStyle}>
-      <LeftSidebar variant="inset" activeView={activeView} setActiveView={setActiveView} />
+      <LeftSidebar
+        variant="inset"
+        setSettingVisible={setSettingVisible}
+        userData={userData}
+        activeView={activeView}
+        setActiveView={setActiveView}
+      />
       <SidebarInset>
         <SiteHeader activeView={activeView} />
         <div className="flex flex-1 flex-col">
@@ -230,6 +239,7 @@ export default function GoalsTrackerApp() {
             )}
             {activeView === 'goals' && (
               <GoalView
+                settings={settings.goals}
                 getHabitsByGoalId={habitsCtx.getHabitsByGoalId}
                 onCreateTask={tasksCtx.handleCreateTask}
                 onEditTask={tasksCtx.handleEditTask}
@@ -245,6 +255,7 @@ export default function GoalsTrackerApp() {
         </div>
       </SidebarInset>
       {activeView === 'habits' && <SidebarRight {...habitsCtx} />}
+      <SettingView isSettingVisible={isSettingVisible} setSettingVisible={setSettingVisible} />
     </SidebarProvider>
   );
 }
