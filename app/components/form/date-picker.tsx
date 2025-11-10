@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 interface DatePickerProps {
   id?: string;
   label?: string;
-  date?: Date | undefined;
+  date?: Date;
   onSelect: (date: Date | undefined) => void;
   placeholder?: string;
   disabled?: boolean;
