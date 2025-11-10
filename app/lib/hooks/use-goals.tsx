@@ -263,7 +263,7 @@ export function useGoals(
   );
 
   const getSortedGoals = useCallback(
-    (sortBy?: GoalSortBy, ascending: boolean = false) => {
+    (sortBy?: GoalSortBy, ascending = false) => {
       return GoalFactory.sortGoals(goalsWithStats, sortBy, ascending);
     },
     [goalsWithStats]

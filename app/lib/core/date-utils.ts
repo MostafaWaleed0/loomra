@@ -97,7 +97,7 @@ export class DateUtils {
     return this.createDateFromString(dateString).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as WeekDay;
   }
 
-  static getWeekStart(date: Date = new Date(), sundayStart: boolean = false): DateString {
+  static getWeekStart(date: Date = new Date(), sundayStart = false): DateString {
     const start = new Date(date);
     const day = start.getDay();
     const diff = sundayStart ? -day : day === 0 ? -6 : -(day - 1);
@@ -105,7 +105,7 @@ export class DateUtils {
     return this.formatDate(start);
   }
 
-  static getWeekEnd(date: Date = new Date(), sundayStart: boolean = false): DateString {
+  static getWeekEnd(date: Date = new Date(), sundayStart = false): DateString {
     const start = this.createDateFromString(this.getWeekStart(date, sundayStart));
     const end = new Date(start);
     end.setDate(end.getDate() + 6);

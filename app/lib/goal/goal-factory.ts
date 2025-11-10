@@ -367,7 +367,7 @@ export class GoalFactory {
   static sortGoals(
     goals: Goal[],
     sortBy: 'title' | 'deadline' | 'priority' | 'createdAt' = 'createdAt',
-    ascending: boolean = false
+    ascending = false
   ): Goal[] {
     if (!Array.isArray(goals)) return [];
 
