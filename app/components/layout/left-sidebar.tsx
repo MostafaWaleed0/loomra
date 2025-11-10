@@ -8,10 +8,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar';
-import { CheckCircle2, Home, Moon, Target, Zap } from 'lucide-react';
+import { CheckCircle2, Home, Settings, Target, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
-export function LeftSidebar({ activeView, setActiveView, ...props }: any) {
+export function LeftSidebar({ userData, activeView, setActiveView, isSettingVisible, setSettingVisible, ...props }: any) {
   const { theme, setTheme } = useTheme();
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -70,7 +70,7 @@ export function LeftSidebar({ activeView, setActiveView, ...props }: any) {
               return (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton onClick={() => setActiveView(item.id)} isActive={isActive}>
-                    <Icon className="!size-5 mx-auto" />
+                    <Icon className="size-5! mx-auto" />
                     <span className="flex-1">{item.label}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -82,13 +82,9 @@ export function LeftSidebar({ activeView, setActiveView, ...props }: any) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              title="Delete Task"
-              onClick={toggleTheme}
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground grid place-items-center"
-            >
-              <Moon />
+            <SidebarMenuButton onClick={() => setSettingVisible(true)}>
+              <Settings />
+              Settings
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -6,6 +6,6 @@ export interface ValidationErrors extends Partial<Habit> {
 
 export interface HabitFormSubComponentProps {
   habitForm: HabitFormData;
-  updateField: (field: string) => (value: any) => void;
+  updateField: (field: keyof HabitFormData) => (value: any) => void;
   validationErrors: ValidationErrors;
 }

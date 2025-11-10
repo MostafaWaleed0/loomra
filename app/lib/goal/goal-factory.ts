@@ -1,18 +1,19 @@
-import { UI_CONFIG, GOAL_CONFIG, SYSTEM_CONSTANTS } from '../core/constants';
-import { DateUtils } from '../core/date-utils';
-import { generateId } from '../core/id-generator';
-import { ValidationUtils } from '../core/validation-utils';
 import type {
+  DateString,
+  FormValidationResult,
   Goal,
-  GoalFormData,
   GoalCategory,
+  GoalFormData,
   GoalPriority,
   GoalStatus,
   IconName,
-  ValidationResult,
-  FormValidationResult,
-  DateString
+  ValidationResult
 } from '@/lib/types';
+import { GOAL_CONFIG, SYSTEM_CONSTANTS, UI_CONFIG } from '../core/constants';
+import { DateUtils } from '../core/date-utils';
+import { generateId } from '../core/id-generator';
+import { ValidationUtils } from '../core/validation-utils';
+import type { AppSettings } from '../tauri-api';
 
 interface GoalValidationResult extends FormValidationResult<Goal> {
   hasWarnings: boolean;
@@ -20,6 +21,13 @@ interface GoalValidationResult extends FormValidationResult<Goal> {
 }
 
 export class GoalFactory {
+  private static getDefaultCategory(settings?: AppSettings['goals']): GoalCategory {
+    if (settings?.defaultCategory) {
+      return settings.defaultCategory as GoalCategory;
+    }
+    return GOAL_CONFIG.CATEGORIES[0];
+  }
+
   // Core Field Validators
   static validators = {
     title: (value: any): ValidationResult<string> => {
@@ -67,10 +75,10 @@ export class GoalFactory {
       }
     },
 
-    category: (value: any): ValidationResult<GoalCategory> => {
+    category: (value: any, settings?: AppSettings['goals']): ValidationResult<GoalCategory> => {
       try {
         const categories = Array.from(GOAL_CONFIG.CATEGORIES ?? []);
-        const defaultCategory = categories[0] || 'Learning';
+        const defaultCategory = GoalFactory.getDefaultCategory(settings);
         const isValid = categories.includes(value);
         return {
           value: isValid ? value : defaultCategory,
@@ -78,7 +86,7 @@ export class GoalFactory {
           error: isValid ? undefined : `Invalid category. Using default: ${defaultCategory}`
         };
       } catch {
-        const defaultCategory = GOAL_CONFIG.CATEGORIES[0] || 'Learning';
+        const defaultCategory = GoalFactory.getDefaultCategory(settings);
         return {
           value: defaultCategory,
           isValid: false,
@@ -196,7 +204,7 @@ export class GoalFactory {
   static validate = {
     title: (value: any): string => this.validators.title(value).value,
     description: (value: any): string => this.validators.description(value).value,
-    category: (value: any): GoalCategory => this.validators.category(value).value,
+    category: (value: any, settings?: AppSettings['goals']): GoalCategory => this.validators.category(value, settings).value,
     priority: (value: any): GoalPriority => this.validators.priority(value).value,
     status: (value: any): GoalStatus => this.validators.status(value).value,
     icon: (value: any): IconName => this.validators.icon(value).value,
@@ -207,12 +215,12 @@ export class GoalFactory {
   };
 
   // Enhanced Form Validation
-  static validateForm(data: Partial<GoalFormData> = {}): GoalValidationResult {
+  static validateForm(data: Partial<GoalFormData> = {}, settings?: AppSettings['goals']): GoalValidationResult {
     const results = {
       title: this.validators.title(data.title || ''),
       description: this.validators.description(data.description || ''),
       notes: this.validators.notes(data.notes || ''),
-      category: this.validators.category(data.category || ''),
+      category: this.validators.category(data.category || '', settings),
       priority: this.validators.priority(data.priority || ''),
       status: this.validators.status(data.status || ''),
       icon: this.validators.icon(data.icon || ''),
@@ -253,7 +261,7 @@ export class GoalFactory {
   }
 
   // Goal Creation
-  static create(data: Partial<GoalFormData>, existing: Goal | null = null): Goal | null {
+  static create(data: Partial<GoalFormData>, existing: Goal | null = null, settings?: AppSettings['goals']): Goal | null {
     try {
       this.validateGoalInput(data);
       const now = new Date().toISOString();
@@ -262,7 +270,7 @@ export class GoalFactory {
         id: existing?.id ?? generateId('goal'),
         title: this.validate.title(data.title),
         description: this.validate.description(data.description),
-        category: this.validate.category(data.category),
+        category: this.validate.category(data.category, settings),
         priority: this.validate.priority(data.priority),
         status: this.validate.status(data.status),
         icon: this.validate.icon(data.icon),
@@ -282,13 +290,13 @@ export class GoalFactory {
   }
 
   // Goal Update
-  static update(existing: Goal | null, updates: Partial<GoalFormData>): Goal | null {
+  static update(existing: Goal | null, updates: Partial<GoalFormData>, settings?: AppSettings['goals']): Goal | null {
     try {
       if (!existing) {
         console.error('Cannot update: existing goal is null');
         return null;
       }
-      return this.create({ ...existing, ...updates }, existing);
+      return this.create({ ...existing, ...updates }, existing, settings);
     } catch (error) {
       console.error('Goal update failed:', error);
       return null;

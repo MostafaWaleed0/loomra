@@ -141,7 +141,7 @@ fn create_tables(conn: &Connection) -> SqlResult<()> {
         [],
     )?;
 
-    // Habit completions table (updated with TEXT for mood and difficulty)
+    // Habit completions table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS habit_completions (
             id TEXT PRIMARY KEY,
@@ -159,6 +159,16 @@ fn create_tables(conn: &Connection) -> SqlResult<()> {
             updated_at TEXT NOT NULL,
             FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
             UNIQUE(habit_id, date)
+        )",
+        [],
+    )?;
+
+    // Settings table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            data TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )",
         [],
     )?;

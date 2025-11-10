@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useGoalForm } from '@/lib/hooks/use-goal-form';
+import { useSettings } from '@/lib/context/settings-context';
 import type { DeleteStrategy, Goal, GoalStats, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Award, CheckCircle2, Plus, Target, TrendingUp } from 'lucide-react';
@@ -19,6 +20,7 @@ import { GoalMetadataGrid } from './goal-metadata-grid';
 import { GoalNotesCard } from './goal-notes-card';
 import { GoalProgressSection } from './goal-progress-section';
 import { HabitsPanel } from './habits-panel';
+import { AppSettings } from '@/lib/tauri-api';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -104,6 +106,8 @@ interface GoalDetailViewProps {
   setIsEditorOpen: (open: boolean) => void;
   shouldAnimate: boolean;
   setShouldAnimate: (value: boolean) => void;
+  deadlineWarning: number;
+  showProgressPercentage: boolean;
 }
 
 function GoalDetailView({
@@ -121,7 +125,9 @@ function GoalDetailView({
   isEditorOpen,
   setIsEditorOpen,
   shouldAnimate,
-  setShouldAnimate
+  setShouldAnimate,
+  deadlineWarning,
+  showProgressPercentage
 }: GoalDetailViewProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { formData, validationErrors, updateField, resetForm, hasErrors } = useGoalForm(goal);
@@ -163,8 +169,8 @@ function GoalDetailView({
             />
             <CardContent>
               <div className="space-y-6">
-                <GoalProgressSection goal={goal} />
-                <GoalMetadataGrid goal={goal} />
+                {showProgressPercentage && <GoalProgressSection goal={goal} />}
+                <GoalMetadataGrid goal={goal} deadlineWarning={deadlineWarning} />
               </div>
             </CardContent>
           </Card>
@@ -229,6 +235,7 @@ export interface GoalViewProps extends UseGoalsReturn {
   onEditTask: (taskId: string, updates: Partial<TaskWithStats>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   getHabitsByGoalId: (goalId: string) => Habit[];
+  settings: AppSettings['goals'];
 }
 
 export function GoalView({
@@ -248,7 +255,8 @@ export function GoalView({
   onToggleTask,
   onEditTask,
   onDeleteTask,
-  getHabitsByGoalId
+  getHabitsByGoalId,
+  settings
 }: GoalViewProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -310,6 +318,8 @@ export function GoalView({
         isEditorOpen={isEditorOpen}
         shouldAnimate={shouldAnimate}
         setShouldAnimate={setShouldAnimate}
+        deadlineWarning={settings.deadlineWarningDays}
+        showProgressPercentage={settings.showProgressPercentage}
       />
     );
   }
@@ -359,6 +369,7 @@ export function GoalView({
             <GoalCard
               key={goal.id}
               goal={goal}
+              showProgressPercentage={settings.showProgressPercentage}
               onClick={() => handleGoalSelect(goal)}
               onEdit={() => {
                 setSelectedGoal(goal);

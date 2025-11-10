@@ -5,8 +5,9 @@ import { ValidatedTextarea } from '@/components/form/validated-textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { DateUtils, HABIT_CONFIG, HabitFormManager, SYSTEM_CONSTANTS, UI_CONFIG, WEEK_DAYS } from '@/lib/core';
+import { HABIT_CONFIG, HabitFormManager, SYSTEM_CONSTANTS } from '@/lib/core';
 import { HabitFactory, HabitFrequencyManager } from '@/lib/habit';
+import { useSettings } from '@/lib/context/settings-context';
 import type { FrequencyConfig, GoalWithStats, Habit, HabitFormData, HabitWithMetadata } from '@/lib/types';
 import { PenTool, Save, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -25,102 +26,44 @@ interface HabitDrawerViewProps {
   availableGoals: GoalWithStats[];
 }
 
-type FieldUpdater = (fieldName: string) => (value: any) => void;
-
 export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableGoals }: HabitDrawerViewProps): JSX.Element {
-  const [habitForm, setHabitForm] = useState<HabitFormData>(createDefaultHabitForm);
+  const { settings } = useSettings();
+
+  const createDefaultForm = () => HabitFactory.create(undefined, undefined, settings.habits) as HabitFormData;
+
+  const [habitForm, setHabitForm] = useState<HabitFormData>(createDefaultForm);
   const [frequencyConfig, setFrequencyConfig] = useState<FrequencyConfig>(HabitFormManager.getDefaultFrequencyConfig);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   const errorCount = Object.values(validationErrors).filter(Boolean).length;
   const hasErrors = errorCount > 0;
 
-  // ============================================================================
-  // FORM CREATION
-  // ============================================================================
+  const updateField = (field: keyof HabitFormData) => (value: any) => {
+    const validator = HabitFactory.validators[field];
+    if (validator) {
+      const result = field === 'priority' || field === 'reminder' ? validator(value, settings.habits) : validator(value);
 
-  function createDefaultHabitForm(): HabitFormData {
-    const defaultDailyFrequency = {
-      type: HABIT_CONFIG.FREQUENCIES.DAILY,
-      value: WEEK_DAYS.map((day) => day.key)
-    };
+      setHabitForm((prev) => ({ ...prev, [field]: result.value }));
+      setValidationErrors((prev) => ({
+        ...prev,
+        [field]: result.isValid ? undefined : result.error
+      }));
+    } else {
+      setHabitForm((prev) => ({ ...prev, [field]: value }));
+    }
+  };
 
-    return {
-      name: 'Untitled habit',
-      category: HABIT_CONFIG.CATEGORIES[0],
-      icon: 'Activity',
-      color: UI_CONFIG.COLORS.ALL[0].value,
-      targetAmount: HABIT_CONFIG.DEFAULTS.TARGET_AMOUNT,
-      unit: HABIT_CONFIG.UNITS[0],
-      frequency: defaultDailyFrequency,
-      startDate: DateUtils.getCurrentDateString(),
-      reminder: HABIT_CONFIG.DEFAULTS.REMINDER,
-      linkedGoals: [],
-      notes: '',
-      priority: HABIT_CONFIG.PRIORITIES[1]
-    };
-  }
-
-  // ============================================================================
-  // FIELD VALIDATION & UPDATES
-  // ============================================================================
-
-  function createValidatedFieldUpdater(field: keyof HabitFormData): (value: any) => void {
-    return (value: any) => {
-      const validator = HabitFactory.validators[field];
-      if (validator) {
-        const result = validator(value);
-        setHabitForm((prev) => ({ ...prev, [field]: result.value }));
-        setValidationErrors((prev) => ({
-          ...prev,
-          [field]: result.isValid ? undefined : result.error
-        }));
-      } else {
-        setHabitForm((prev) => ({ ...prev, [field]: value }));
-      }
-    };
-  }
-
-  function updateField(): FieldUpdater {
-    const updaters: Record<string, (value: any) => void> = {};
-    const validatableFields: (keyof HabitFormData)[] = [
-      'name',
-      'targetAmount',
-      'category',
-      'unit',
-      'priority',
-      'notes',
-      'icon',
-      'color',
-      'startDate',
-      'linkedGoals',
-      'frequency',
-      'reminder'
-    ];
-
-    validatableFields.forEach((field) => {
-      updaters[field] = createValidatedFieldUpdater(field);
-    });
-
-    return (fieldName: string) =>
-      updaters[fieldName] || ((value: any) => setHabitForm((prev) => ({ ...prev, [fieldName]: value })));
-  }
-
-  // ============================================================================
-  // HANDLERS
-  // ============================================================================
-
-  function handleClose(): void {
+  const handleClose = () => {
     if (!habitData) {
-      setHabitForm(createDefaultHabitForm());
+      setHabitForm(createDefaultForm());
       setFrequencyConfig(HabitFormManager.getDefaultFrequencyConfig());
     }
     setValidationErrors({});
     onClose();
-  }
+  };
 
-  function handleSave(): void {
-    const formValidation = HabitFactory.validateForm(habitForm);
+  const handleSave = () => {
+    const formValidation = HabitFactory.validateForm(habitForm, settings.habits);
     if (!formValidation.isValid) {
       const errorMap = formValidation.errors.reduce(
         (acc, { field, error }) => ({ ...acc, [field]: error }),
@@ -139,7 +82,7 @@ export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableG
       }
     };
 
-    const habitToSave = HabitFactory.create(completeHabitData, habitData || undefined);
+    const habitToSave = HabitFactory.create(completeHabitData, habitData || undefined, settings.habits);
     if (!habitToSave) {
       setValidationErrors({ general: 'Failed to create valid habit. Please check your inputs.' });
       return;
@@ -147,15 +90,11 @@ export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableG
 
     onSave(habitToSave, habitData);
     handleClose();
-  }
-
-  // ============================================================================
-  // EFFECTS
-  // ============================================================================
+  };
 
   useEffect(() => {
     if (habitData) {
-      const formValidation = HabitFactory.validateForm(habitData);
+      const formValidation = HabitFactory.validateForm(habitData, settings.habits);
       if (!formValidation.isValid) {
         const errorMap = formValidation.errors.reduce(
           (acc, { field, error }) => ({ ...acc, [field]: error }),
@@ -175,11 +114,11 @@ export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableG
       });
       setFrequencyConfig(HabitFormManager.initializeFrequencyFromHabit(existingFrequency));
     } else {
-      setHabitForm(createDefaultHabitForm());
+      setHabitForm(createDefaultForm());
       setFrequencyConfig(HabitFormManager.getDefaultFrequencyConfig());
       setValidationErrors({});
     }
-  }, [habitData]);
+  }, [habitData, settings.habits]);
 
   // ============================================================================
   // RENDER
@@ -207,16 +146,16 @@ export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableG
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Left Column */}
               <div className="space-y-8">
-                <BasicInfoForm habitForm={habitForm} updateField={updateField()} validationErrors={validationErrors} />
+                <BasicInfoForm habitForm={habitForm} updateField={updateField} validationErrors={validationErrors} />
                 <FrequencySelector
                   habitForm={habitForm}
                   setHabitForm={setHabitForm}
                   frequencyConfig={frequencyConfig}
                   setFrequencyConfig={setFrequencyConfig}
-                  updateField={updateField()}
+                  updateField={updateField}
                   validationErrors={validationErrors}
                 />
-                <SettingsForm habitForm={habitForm} updateField={updateField()} validationErrors={validationErrors} />
+                <SettingsForm habitForm={habitForm} updateField={updateField} validationErrors={validationErrors} />
               </div>
 
               {/* Right Column */}
@@ -224,11 +163,11 @@ export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableG
                 <GoalSection
                   habitForm={habitForm}
                   availableGoals={availableGoals}
-                  updateField={updateField()}
+                  updateField={updateField}
                   validationErrors={validationErrors}
                 />
-                <StyleForm habitForm={habitForm} updateField={updateField()} validationErrors={validationErrors} />
-                <Card className="border-0 shadow-none bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+                <StyleForm habitForm={habitForm} updateField={updateField} validationErrors={validationErrors} />
+                <Card className="border-0 shadow-none bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <PenTool className="size-5 text-slate-500" />
@@ -240,7 +179,7 @@ export function HabitDrawerView({ isOpen, onClose, onSave, habitData, availableG
                       id="goal-notes"
                       label=""
                       value={habitForm.notes || ''}
-                      onChange={updateField()('notes')}
+                      onChange={updateField('notes')}
                       placeholder="Enter goal description"
                       maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_NOTE_LENGTH}
                       error={validationErrors.notes}

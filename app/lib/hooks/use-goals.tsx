@@ -1,6 +1,6 @@
 import { GoalFactory } from '@/lib/goal/goal-factory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { commands } from '../tauri-api';
+import { AppSettings, commands } from '../tauri-api';
 import type {
   DeleteStrategy,
   Goal,
@@ -15,7 +15,8 @@ import type {
 export function useGoals(
   tasks: TaskWithStats[] = [],
   refreshTasks?: (() => Promise<void>) | null,
-  refreshHabits?: (() => Promise<void>) | null
+  refreshHabits?: (() => Promise<void>) | null,
+  settings?: AppSettings['goals']
 ): UseGoalsReturn {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
@@ -95,33 +96,40 @@ export function useGoals(
   // ==========================================================================
   // CRUD - Optimistic updates (no refresh)
   // ==========================================================================
-  const handleCreateGoal = useCallback(async (payload: Partial<Goal> = { title: 'New Goal' }) => {
-    if (!commands?.goals) {
-      setValidationErrors({ general: 'API not available' });
-      return null;
-    }
+  const handleCreateGoal = useCallback(
+    async (payload: Partial<Goal> = { title: 'New Goal' }) => {
+      if (!commands?.goals) {
+        setValidationErrors({ general: 'API not available' });
+        return null;
+      }
 
-    setValidationErrors({});
+      setValidationErrors({});
 
-    try {
-      const newGoal = GoalFactory.create({
-        ...payload,
-        title: payload.title || 'New Goal'
-      });
+      try {
+        const newGoal = GoalFactory.create(
+          {
+            ...payload,
+            title: payload.title || 'New Goal'
+          },
+          null,
+          settings
+        );
 
-      if (!newGoal) throw new Error('Failed to create goal');
+        if (!newGoal) throw new Error('Failed to create goal');
 
-      const savedGoal = await commands.goals.createGoal(newGoal);
-      setGoals((prev) => [savedGoal, ...prev]);
-      setSelectedGoalId(savedGoal.id);
+        const savedGoal = await commands.goals.createGoal(newGoal);
+        setGoals((prev) => [savedGoal, ...prev]);
+        setSelectedGoalId(savedGoal.id);
 
-      return savedGoal;
-    } catch (error) {
-      console.error('Error creating goal:', error);
-      setValidationErrors({ general: 'Failed to create goal' });
-      return null;
-    }
-  }, []);
+        return savedGoal;
+      } catch (error) {
+        console.error('Error creating goal:', error);
+        setValidationErrors({ general: 'Failed to create goal' });
+        return null;
+      }
+    },
+    [settings]
+  );
 
   const handleUpdateGoal = useCallback(
     async (goalId: string, updates: Partial<Goal>) => {
@@ -136,7 +144,7 @@ export function useGoals(
       setValidationErrors({});
 
       try {
-        const updatedGoal = GoalFactory.update(existingGoal, updates);
+        const updatedGoal = GoalFactory.update(existingGoal, updates, settings);
         if (!updatedGoal) throw new Error('Failed to update goal');
 
         // Optimistic update
@@ -153,7 +161,7 @@ export function useGoals(
         return false;
       }
     },
-    [goals, refreshGoals]
+    [goals, refreshGoals, settings]
   );
 
   const handleDeleteGoal = useCallback(

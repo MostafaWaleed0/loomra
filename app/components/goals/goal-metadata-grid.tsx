@@ -4,9 +4,16 @@ import type { GoalWithStats } from '@/lib/types';
 
 interface GoalMetadataGridProps {
   goal: GoalWithStats;
+  deadlineWarning: number;
 }
 
-export function GoalMetadataGrid({ goal }: GoalMetadataGridProps) {
+export function GoalMetadataGrid({ goal, deadlineWarning }: GoalMetadataGridProps) {
+  const daysUntilDeadline = goal.daysUntilDeadline ?? 0;
+  const isOverdue = daysUntilDeadline < 0;
+  const isNearDeadline = daysUntilDeadline <= deadlineWarning;
+
+  const deadlineColorClass = isOverdue ? 'text-red-600' : isNearDeadline ? 'text-red-500' : 'text-foreground';
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
@@ -28,8 +35,8 @@ export function GoalMetadataGrid({ goal }: GoalMetadataGridProps) {
       {goal.deadline && (
         <div>
           <div className="text-muted-foreground">Deadline</div>
-          <div className="font-medium">
-            {Math.abs(goal.daysUntilDeadline || 0)}d {(goal.daysUntilDeadline || 0) >= 0 ? 'left' : 'overdue'}
+          <div className={`font-medium ${deadlineColorClass}`}>
+            {Math.abs(daysUntilDeadline)}d {daysUntilDeadline >= 0 ? 'left' : 'overdue'}
           </div>
         </div>
       )}

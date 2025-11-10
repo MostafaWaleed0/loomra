@@ -13,6 +13,47 @@ interface AppInfo {
   authors: string;
 }
 
+// Settings Types
+export interface AppearanceSettings {
+  theme: 'light' | 'dark' | 'system';
+  weekStartsOn: 'sunday' | 'monday';
+  timezone: string;
+}
+
+export interface HabitSettings {
+  defaultReminder: boolean;
+  defaultReminderTime: string;
+  defaultPriority: 'low' | 'medium' | 'high';
+}
+
+export interface GoalSettings {
+  deadlineWarningDays: number;
+  defaultCategory: string;
+  showProgressPercentage: boolean;
+}
+
+export interface NotificationSettings {
+  habitReminders: boolean;
+  goalDeadlines: boolean;
+  streakMilestones: boolean;
+  dailySummary: boolean;
+  weeklySummary: boolean;
+  motivationalQuotes: boolean;
+}
+
+export interface DataSettings {
+  autoBackup: boolean;
+  backupFrequency: 'daily' | 'weekly' | 'monthly';
+}
+
+export interface AppSettings {
+  appearance: AppearanceSettings;
+  habits: HabitSettings;
+  goals: GoalSettings;
+  notifications: NotificationSettings;
+  data: DataSettings;
+}
+
 interface AuthAPI {
   hashPassword: (password: string) => Promise<string>;
   verifyPassword: (password: string, hashedPassword: string) => Promise<boolean>;
@@ -62,6 +103,21 @@ interface HabitCompletionsAPI {
   deleteHabitCompletion: (id: string) => Promise<boolean>;
 }
 
+interface SettingsAPI {
+  getSettings: () => Promise<AppSettings | null>;
+  saveSettings: (settings: AppSettings) => Promise<AppSettings>;
+  updateAppearanceSettings: (appearance: AppearanceSettings) => Promise<AppSettings>;
+  updateHabitSettings: (habits: HabitSettings) => Promise<AppSettings>;
+  updateGoalSettings: (goals: GoalSettings) => Promise<AppSettings>;
+  updateNotificationSettings: (notifications: NotificationSettings) => Promise<AppSettings>;
+  updateDataSettings: (data: DataSettings) => Promise<AppSettings>;
+  resetSettings: (args: { defaultSettings: AppSettings }) => Promise<AppSettings>;
+  exportAllData: () => Promise<string>;
+  importAllData: (jsonData: string) => Promise<string>;
+  exportSettings: () => Promise<string>;
+  importSettings: (jsonData: string) => Promise<AppSettings>;
+}
+
 interface UpdatersAPI {
   getAppVersion: () => Promise<string>;
   getAppInfo: () => Promise<AppInfo>;
@@ -87,6 +143,7 @@ interface TauriAPI {
   tasks: TasksAPI;
   habits: HabitsAPI;
   habitCompletions: HabitCompletionsAPI;
+  settings: SettingsAPI;
   updater: UpdatersAPI;
 }
 
@@ -144,6 +201,21 @@ const tauriAPI: TauriAPI = {
       invoke('get_habit_completions', { habitId, startDate, endDate, limit }),
     getCompletionByDate: (habitId, date) => invoke('get_completion_by_date', { habitId, date }),
     getHabitStreak: (habitId) => invoke('get_habit_streak', { habitId })
+  },
+
+  settings: {
+    getSettings: () => invoke('get_settings'),
+    saveSettings: (settings) => invoke('save_settings', { settings }),
+    updateAppearanceSettings: (appearance) => invoke('update_appearance_settings', { appearance }),
+    updateHabitSettings: (habits) => invoke('update_habit_settings', { habits }),
+    updateGoalSettings: (goals) => invoke('update_goal_settings', { goals }),
+    updateNotificationSettings: (notifications) => invoke('update_notification_settings', { notifications }),
+    updateDataSettings: (data) => invoke('update_data_settings', { data }),
+    resetSettings: (args) => invoke('reset_settings', args),
+    exportAllData: () => invoke('export_all_data'),
+    importAllData: (jsonData) => invoke('import_all_data', { jsonData }),
+    exportSettings: () => invoke('export_settings'),
+    importSettings: (jsonData) => invoke('import_settings', { jsonData })
   },
 
   updater: {
