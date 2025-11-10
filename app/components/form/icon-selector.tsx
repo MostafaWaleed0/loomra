@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
 
 interface IconSelectorProps {
-  icons?: IconName[] | undefined;
+  icons?: IconName[];
   selectedIcon?: IconName;
   onIconSelect: (icon: IconName) => void;
   error?: string;
