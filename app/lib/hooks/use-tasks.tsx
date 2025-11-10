@@ -239,7 +239,7 @@ export function useTasks(): UseTasksReturn {
   );
 
   const getUpcomingTasks = useCallback(
-    (days: number = 7): TaskWithStats[] => {
+    (days = 7): TaskWithStats[] => {
       const now = new Date();
       const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 

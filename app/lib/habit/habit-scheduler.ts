@@ -100,7 +100,7 @@ export class HabitScheduler {
     };
   }
 
-  static getUpcomingHabits(habits: Habit[], completions: HabitCompletion[], days: number = 7): UpcomingHabit[] {
+  static getUpcomingHabits(habits: Habit[], completions: HabitCompletion[], days = 7): UpcomingHabit[] {
     const today = DateUtils.getCurrentDateString();
     const upcomingDates: DateString[] = [];
 

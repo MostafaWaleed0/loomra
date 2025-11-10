@@ -484,7 +484,7 @@ export function useHabits(): UseHabitsReturn {
   );
 
   const getHabitsWithMetadata = useCallback(
-    (date: DateString = selectedDate, showAll: boolean = false): HabitWithMetadata[] => {
+    (date: DateString = selectedDate, showAll = false): HabitWithMetadata[] => {
       const today = DateUtils.getCurrentDateString();
       const weekStart = DateUtils.getWeekStart();
       const weekEnd = DateUtils.getWeekEnd();
