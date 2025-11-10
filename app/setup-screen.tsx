@@ -5,6 +5,24 @@ import { useTheme } from 'next-themes';
 import { useState } from 'react';
 import { UserSetupData } from './lib/types';
 
+const VALIDATION_MESSAGES = {
+  NAME: {
+    REQUIRED: 'Please enter your name',
+    MIN_LENGTH: 'Name must be at least 2 characters',
+    MAX_LENGTH: 'Name must be less than 50 characters'
+  },
+  PASSWORD: {
+    REQUIRED: 'Please enter a password',
+    MIN_LENGTH: 'Password must be at least 8 characters',
+    MAX_LENGTH: 'Password must be less than 50 characters',
+    CONFIRM_REQUIRED: 'Please confirm your password',
+    MISMATCH: 'Passwords do not match'
+  },
+  SAVE: {
+    ERROR: 'Failed to save data. Please try again.'
+  }
+} as const;
+
 interface SetupScreenProps {
   onComplete: () => void;
   saveUserData: (data: UserSetupData) => Promise<{
@@ -34,7 +52,7 @@ const steps = [
   {
     id: 'complete',
     title: "You're all set!",
-    subtitle: "'Let's start tracking your goals",
+    subtitle: "Let's start tracking your goals",
     icon: CheckCircle2
   }
 ];
@@ -56,27 +74,27 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
     if (currentStep === 1) {
       const trimmedName = name.trim();
       if (!trimmedName) {
-        newErrors.name = 'Please enter your name';
+        newErrors.name = VALIDATION_MESSAGES.NAME.REQUIRED;
       } else if (trimmedName.length < 2) {
-        newErrors.name = 'Name must be at least 2 characters';
+        newErrors.name = VALIDATION_MESSAGES.NAME.MIN_LENGTH;
       } else if (trimmedName.length > 50) {
-        newErrors.name = 'Name must be less than 50 characters';
+        newErrors.name = VALIDATION_MESSAGES.NAME.MAX_LENGTH;
       }
     }
 
     if (currentStep === 2) {
       if (!password) {
-        newErrors.password = 'Please enter a password';
+        newErrors.password = VALIDATION_MESSAGES.PASSWORD.REQUIRED;
       } else if (password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
+        newErrors.password = VALIDATION_MESSAGES.PASSWORD.MIN_LENGTH;
       } else if (password.length > 50) {
-        newErrors.password = 'Password must be less than 50 characters';
+        newErrors.password = VALIDATION_MESSAGES.PASSWORD.MAX_LENGTH;
       }
 
       if (!confirmPassword) {
-        newErrors.confirmPassword = 'Please confirm your password';
+        newErrors.confirmPassword = VALIDATION_MESSAGES.PASSWORD.CONFIRM_REQUIRED;
       } else if (password !== confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
+        newErrors.confirmPassword = VALIDATION_MESSAGES.PASSWORD.MISMATCH;
       }
     }
 
@@ -112,7 +130,7 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
       } else {
         // Handle error
         setIsSaving(false);
-        setErrors({ save: 'Failed to save data. Please try again.' });
+        setErrors({ save: VALIDATION_MESSAGES.SAVE.ERROR });
         setCurrentStep(currentStep - 1);
       }
     } else {
