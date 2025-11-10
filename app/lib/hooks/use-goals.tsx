@@ -247,7 +247,7 @@ export function useGoals(
         if (filters.category && goal.category !== filters.category) return false;
         if (filters.completed !== undefined && goal.isCompleted !== filters.completed) return false;
         if (filters.overdue !== undefined && goal.isOverdue !== filters.overdue) return false;
-        if (filters.hasDeadline !== undefined && !!goal.deadline !== filters.hasDeadline) return false;
+        if (filters.hasDeadline !== undefined && Boolean(goal.deadline) !== filters.hasDeadline) return false;
         if (filters.search) {
           const term = filters.search.toLowerCase();
           return (

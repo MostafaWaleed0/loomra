@@ -43,7 +43,7 @@ export const ValidatedSelect: React.FC<ValidatedSelectProps> = ({
           id={id}
           className="h-12 capitalize"
           aria-label={label}
-          aria-invalid={!!error}
+          aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
         >
           <SelectValue placeholder={placeholder} />

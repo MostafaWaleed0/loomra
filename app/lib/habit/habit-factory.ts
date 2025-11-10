@@ -162,7 +162,7 @@ export class HabitFactory {
         const dateString = date ? DateUtils.formatDate(date) : DateUtils.getCurrentDateString();
         return {
           value: dateString,
-          isValid: !!date,
+          isValid: Boolean(date),
           error: date ? undefined : 'Invalid date format. Using current date'
         };
       } catch {
@@ -186,7 +186,7 @@ export class HabitFactory {
         const time = timeValidation ? value.time : defaultReminder.time;
         return {
           value: { enabled, time },
-          isValid: !!timeValidation,
+          isValid: Boolean(timeValidation),
           error: timeValidation ? undefined : 'Invalid reminder time format. Using default time'
         };
       } catch {
