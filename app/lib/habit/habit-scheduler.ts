@@ -40,9 +40,9 @@ export class HabitScheduler {
   static getHabitStatusForDate(habit: Habit, completions: HabitCompletion[], date: DateString): HabitStatusForDate {
     const record = HabitCompletionManager.getRecord(completions, habit.id, date);
     const isScheduled = this.shouldCompleteOnDate(habit, completions, date);
-    const isCompleted = (record && record.completed && !record.skipped) || false;
-    const isSkipped = (record && record.skipped) || false;
-    const actualAmount = (record && record.actualAmount) || 0;
+    const isCompleted = (record?.completed && !record.skipped) || false;
+    const isSkipped = (record?.skipped) || false;
+    const actualAmount = (record?.actualAmount) || 0;
     const canComplete = isScheduled && !DateUtils.isFutureDate(date);
 
     return {
