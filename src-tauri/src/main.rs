@@ -4,9 +4,10 @@ mod commands;
 mod database;
 
 use tauri::{
+    image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
-    tray::{TrayIconBuilder, TrayIconEvent},
-    Manager, RunEvent, WindowEvent,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager, RunEvent, WindowEvent,
 };
 use tauri_plugin_updater::UpdaterExt;
 
@@ -99,10 +100,17 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Build the system tray with menu items
+/// Load tray icon from embedded resources
+fn load_tray_icon() -> Image<'static> {
+    Image::from_bytes(include_bytes!("../icons/icon.png"))
+        .expect("Failed to load tray icon")
+}
+
+/// Build the system tray with better icons
 fn setup_system_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let show_item = MenuItemBuilder::new("Show App")
-        .id("show")
+    // Menu items
+    let toggle_item = MenuItemBuilder::new("Show/Hide")
+        .id("toggle")
         .build(app)?;
 
     let check_updates_item = MenuItemBuilder::new("Check for Updates")
@@ -114,14 +122,18 @@ fn setup_system_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>>
         .build(app)?;
 
     let tray_menu = MenuBuilder::new(app)
-        .items(&[&show_item, &check_updates_item, &quit_item])
+        .items(&[&toggle_item, &check_updates_item, &quit_item])
         .build()?;
 
+    // Load the default tray icon
+    let tray_icon = load_tray_icon();
+
+    // Build tray with custom icon
     TrayIconBuilder::new()
         .menu(&tray_menu)
+        .icon(tray_icon)
         .on_tray_icon_event(handle_tray_icon_event)
         .on_menu_event(handle_tray_menu_event)
-        .icon(app.default_window_icon().unwrap().clone())
         .tooltip("Loomra")
         .build(app)?;
 
@@ -130,21 +142,20 @@ fn setup_system_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
 /// Handle tray icon click events
 fn handle_tray_icon_event(tray: &tauri::tray::TrayIcon, event: TrayIconEvent) {
-    if let TrayIconEvent::Click { .. } = event {
+    if let TrayIconEvent::Click {
+        button: MouseButton::Left,
+        button_state: MouseButtonState::Up,
+        ..
+    } = event
+    {
         let app = tray.app_handle();
         if let Some(window) = app.get_webview_window("main") {
-            match window.is_visible() {
-                Ok(true) => {
-                    let _ = window.hide();
-                }
-                Ok(false) => {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                    let _ = window.unminimize();
-                }
-                Err(e) => {
-                    eprintln!("Failed to check window visibility: {}", e);
-                }
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+            } else {
+                let _ = window.show();
+                let _ = window.set_focus();
+                let _ = window.unminimize();
             }
         }
     }
@@ -154,14 +165,17 @@ fn handle_tray_icon_event(tray: &tauri::tray::TrayIcon, event: TrayIconEvent) {
 fn handle_tray_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
         "quit" => {
-            // Properly quit the application on all platforms
             app.exit(0);
         }
-        "show" => {
+        "toggle" => {
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-                let _ = window.unminimize();
+                if window.is_visible().unwrap_or(false) {
+                    let _ = window.hide();
+                } else {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.unminimize();
+                }
             }
         }
         "check_updates" => {
@@ -174,14 +188,26 @@ fn handle_tray_menu_event(app: &tauri::AppHandle, event: tauri::menu::MenuEvent)
 /// Trigger manual update check
 fn check_for_updates(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
-        match app.updater() {
+        match app.updater_builder().build() {
             Ok(updater) => {
-                if let Err(e) = updater.check().await {
-                    eprintln!("Update check failed: {}", e);
+                match updater.check().await {
+                    Ok(Some(update)) => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.emit("update-available", update.version);
+                        }
+                    }
+                    Ok(None) => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.emit("update-not-available", ());
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Update check failed: {}", e);
+                    }
                 }
             }
             Err(e) => {
-                eprintln!("Failed to get updater: {}", e);
+                eprintln!("Failed to build updater: {}", e);
             }
         }
     });
@@ -195,40 +221,11 @@ fn handle_run_events(app: &tauri::AppHandle, event: RunEvent) {
             event: WindowEvent::CloseRequested { api, .. },
             ..
         } => {
-            // Platform-specific close behavior
             if label == "main" {
-                #[cfg(target_os = "macos")]
-                {
-                    // On macOS, hide the window but keep app running (standard macOS behavior)
-                    if let Some(window) = app.get_webview_window(&label) {
-                        let _ = window.hide();
-                    }
-                    api.prevent_close();
+                if let Some(window) = app.get_webview_window(&label) {
+                    let _ = window.hide();
                 }
-
-                #[cfg(not(target_os = "macos"))]
-                {
-                    // On Windows/Linux, minimize to tray
-                    if let Some(window) = app.get_webview_window(&label) {
-                        let _ = window.hide();
-                    }
-                    api.prevent_close();
-                }
-            }
-        }
-        RunEvent::ExitRequested { api, .. } => {
-            // Platform-specific exit behavior
-            #[cfg(target_os = "macos")]
-            {
-                // On macOS, allow Cmd+Q to quit
-                // Check if all windows are closed or user explicitly quit
-                api.prevent_exit();
-            }
-
-            #[cfg(not(target_os = "macos"))]
-            {
-                // On Windows/Linux, prevent exit and require tray quit
-                api.prevent_exit();
+                api.prevent_close();
             }
         }
         _ => {}
