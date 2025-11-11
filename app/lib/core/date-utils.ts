@@ -46,7 +46,7 @@ export class DateUtils {
     if (!dateInput) return 'Select date';
 
     const { showToday = true, format = 'long', includeWeekday = false } = options;
-    const date = typeof dateInput === 'string' ? this.createDateFromString(dateInput) : dateInput;
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
 
     if (isNaN(date.getTime())) return 'Invalid date';
 
