@@ -1,6 +1,11 @@
-# Loomra
+<h1 style="display: flex; align-items: center; gap: 8px;">
+  <img src="./public/logo.png" alt="Loomra Logo" width="26">
+  Loomra
+</h1>
 
 A modern goal tracking and habit building desktop application built with Next.js and Tauri.
+
+![App Screenshot](./public/screenshots/dashboard.png)
 
 ### Setup
 
