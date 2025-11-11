@@ -1,5 +1,5 @@
 <h1 style="display: flex; align-items: center; gap: 8px;">
-  <img src="./public/logo.png" alt="Loomra Logo" width="26">
+  <img src="./public/logo.png" alt="Loomra Logo" width="30">
   Loomra
 </h1>
 
