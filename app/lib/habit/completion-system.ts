@@ -108,9 +108,12 @@ export class HabitCompletionManager {
 
         if (shouldComplete) {
           const isCompleted = this.isCompletedOnDate(completions, habit.id, currentDate);
+          const isSkipped = this.isSkippedOnDate(completions, habit.id, currentDate);
+
           if (isCompleted) {
             streak++;
-          } else {
+          } else if (!isSkipped) {
+            // Only break the streak if the day is NOT completed AND NOT skipped
             break;
           }
         }
