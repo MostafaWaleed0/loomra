@@ -64,7 +64,7 @@
       "active": true,
       "endpoints": ["https://github.com/MostafaWaleed0/loomra/releases/latest/download/latest.json"],
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQwRUFERTdGMEI1MkYwQUEKUldTcThGSUxmOTdxME9menJCQkplVkY4VnkxbjFYdEFER2lpdFluNnVPWVZRNDNCY1pUWTl5OXQK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQyMTgxODUzNkNBNkJCQjQKUldTMHU2WnNVeGdZUXJjeVpWaUZFZy8yNHJXMjVyOEhCdXNUanpPU0hBZzVZdmRCSktwTHM4SjUK"
     },
     "fs": {
       "scope": ["$APPDATA/*", "$APPDATA/**"]
