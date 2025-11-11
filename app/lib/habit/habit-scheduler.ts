@@ -1,36 +1,42 @@
+import type {
+  DateString,
+  GroupedHabits,
+  Habit,
+  HabitCompletion,
+  HabitStatusForDate,
+  HabitWithStatus,
+  UpcomingHabit
+} from '@/lib/types';
 import { HABIT_CONFIG } from '../core/constants';
 import { DateUtils } from '../core/date-utils';
 import { HabitCompletionManager } from './completion-system';
 import { HabitFrequencyManager } from './frequency-system';
-import type {
-  Habit,
-  HabitCompletion,
-  DateString,
-  HabitStatusForDate,
-  HabitWithStatus,
-  GroupedHabits,
-  UpcomingHabit,
-  HabitFrequency
-} from '@/lib/types';
 
 export class HabitScheduler {
   static shouldCompleteOnDate(habit: Habit, completions: HabitCompletion[], date: DateString): boolean {
-    // Check if already completed on this date (and not skipped)
-    const isCompletedOnThisDate = HabitCompletionManager.isCompletedOnDate(completions, habit.id, date);
-    if (isCompletedOnThisDate) {
+    // Check if habit is scheduled based on frequency rules
+    const isScheduled = HabitFrequencyManager.shouldCompleteOnDate(habit.frequency, date, habit.startDate);
+
+    // If not scheduled by frequency rules, don't show
+    if (!isScheduled) {
+      return false;
+    }
+
+    // If already completed or skipped on this date, show it
+    const record = HabitCompletionManager.getRecord(completions, habit.id, date);
+    if (record && (record.completed || record.skipped)) {
       return true;
     }
 
     // For X times per period, check if already completed enough times
     if (habit.frequency.type === HABIT_CONFIG.FREQUENCIES.X_TIMES_PER_PERIOD) {
-      const isCompleted = this.isXTimesPerPeriodCompleted(completions, habit.id, habit.frequency, date);
-      if (isCompleted) {
+      const { quotaMet } = this.getXTimesPerPeriodQuota(habit, completions, date);
+      if (quotaMet) {
         return false;
       }
     }
 
-    // Check if habit is scheduled based on frequency rules
-    return HabitFrequencyManager.shouldCompleteOnDate(habit.frequency, date, habit.startDate);
+    return true;
   }
 
   static getHabitsForDate(habits: Habit[], completions: HabitCompletion[], date: DateString): Habit[] {
@@ -41,8 +47,8 @@ export class HabitScheduler {
     const record = HabitCompletionManager.getRecord(completions, habit.id, date);
     const isScheduled = this.shouldCompleteOnDate(habit, completions, date);
     const isCompleted = (record?.completed && !record.skipped) || false;
-    const isSkipped = (record?.skipped) || false;
-    const actualAmount = (record?.actualAmount) || 0;
+    const isSkipped = record?.skipped || false;
+    const actualAmount = record?.actualAmount || 0;
     const canComplete = isScheduled && !DateUtils.isFutureDate(date);
 
     return {
@@ -51,6 +57,39 @@ export class HabitScheduler {
       isSkipped,
       actualAmount,
       canComplete
+    };
+  }
+
+  /**
+   * Get quota information for X times per period habits
+   */
+  static getXTimesPerPeriodQuota(habit: Habit, completions: HabitCompletion[], date: DateString): { quotaMet: boolean } {
+    if (habit.frequency.type !== HABIT_CONFIG.FREQUENCIES.X_TIMES_PER_PERIOD || !habit.frequency.value) {
+      return { quotaMet: false };
+    }
+
+    const { repetitionsPerPeriod, period } = habit.frequency.value;
+    let periodStart: DateString;
+    let periodEnd: DateString;
+
+    if (period === 'week') {
+      periodStart = DateUtils.getWeekStart(DateUtils.createDateFromString(date), true);
+      periodEnd = DateUtils.getWeekEnd(DateUtils.createDateFromString(date), true);
+    } else if (period === 'month') {
+      periodStart = DateUtils.getMonthStart(DateUtils.createDateFromString(date));
+      periodEnd = DateUtils.getMonthEnd(DateUtils.createDateFromString(date));
+    } else {
+      return { quotaMet: false };
+    }
+
+    const periodDates = DateUtils.getDateRange(periodStart, periodEnd);
+    const completedCount = periodDates.reduce((count, d) => {
+      const isCompleted = HabitCompletionManager.isCompletedOnDate(completions, habit.id, d);
+      return count + (isCompleted ? 1 : 0);
+    }, 0);
+
+    return {
+      quotaMet: completedCount >= repetitionsPerPeriod
     };
   }
 
@@ -116,38 +155,5 @@ export class HabitScheduler {
       habits: this.getHabitsForDate(habits, completions, date),
       isToday: date === today
     }));
-  }
-
-  static isXTimesPerPeriodCompleted(
-    completions: HabitCompletion[],
-    habitId: string,
-    frequency: HabitFrequency,
-    dateString: DateString
-  ): boolean {
-    if (frequency.type !== HABIT_CONFIG.FREQUENCIES.X_TIMES_PER_PERIOD) {
-      return false;
-    }
-
-    const { repetitionsPerPeriod, period } = frequency.value;
-    let periodStart: DateString;
-    let periodEnd: DateString;
-
-    if (period === 'week') {
-      periodStart = DateUtils.getWeekStart(DateUtils.createDateFromString(dateString), true);
-      periodEnd = DateUtils.getWeekEnd(DateUtils.createDateFromString(dateString), true);
-    } else if (period === 'month') {
-      periodStart = DateUtils.getMonthStart(DateUtils.createDateFromString(dateString));
-      periodEnd = DateUtils.getMonthEnd(DateUtils.createDateFromString(dateString));
-    } else {
-      return false;
-    }
-
-    const periodDates = DateUtils.getDateRange(periodStart, periodEnd);
-    const completedCount = periodDates.reduce((count, date) => {
-      const isCompleted = HabitCompletionManager.isCompletedOnDate(completions, habitId, date);
-      return count + (isCompleted ? 1 : 0);
-    }, 0);
-
-    return completedCount >= repetitionsPerPeriod;
   }
 }
