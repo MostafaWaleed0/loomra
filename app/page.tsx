@@ -119,7 +119,15 @@ export default function GoalsTrackerApp() {
   const [showPasswordVerify, setShowPasswordVerify] = useState(false);
 
   // Data Hooks
-  const { userData, isLoading: isUserDataLoading, saveUserData, verifyPassword, isAuthenticated } = useUserData();
+  const {
+    userData,
+    isLoading: isUserDataLoading,
+    saveUserData,
+    verifyPassword,
+    changePassword,
+    updateUserData,
+    isAuthenticated
+  } = useUserData();
   const habitsCtx = useHabits();
   const tasksCtx = useTasks();
   const goalsCtx = useGoals(tasksCtx.tasks, tasksCtx.refreshTasks, habitsCtx.refreshHabits, settings.goals);
@@ -255,7 +263,13 @@ export default function GoalsTrackerApp() {
         </div>
       </SidebarInset>
       {activeView === 'habits' && <SidebarRight {...habitsCtx} />}
-      <SettingView isSettingVisible={isSettingVisible} setSettingVisible={setSettingVisible} />
+      <SettingView
+        isSettingVisible={isSettingVisible}
+        setSettingVisible={setSettingVisible}
+        userData={userData}
+        onUpdateUserData={updateUserData}
+        onChangePassword={changePassword}
+      />
     </SidebarProvider>
   );
 }

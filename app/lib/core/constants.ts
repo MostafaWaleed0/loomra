@@ -79,6 +79,10 @@ export const SYSTEM_CONSTANTS = {
   },
 
   VALIDATION: {
+    MIN_USERNAME_LENGTH: 2,
+    MAX_USERNAME_LENGTH: 50,
+    MIN_PASSWORD_LENGTH: 8,
+    MAX_PASSWORD_LENGTH: 50,
     MIN_NAME_LENGTH: 1,
     MAX_NAME_LENGTH: 50,
     MAX_NOTE_LENGTH: 250,
@@ -90,6 +94,70 @@ export const SYSTEM_CONSTANTS = {
     COLOR_PATTERN: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
   }
 } as const;
+
+export const VALIDATION_MESSAGES = {
+  USERNAME: {
+    REQUIRED: 'Username is required',
+    EMPTY: 'Username cannot be empty',
+    MIN_LENGTH: `Username must be at least ${SYSTEM_CONSTANTS.VALIDATION.MIN_USERNAME_LENGTH} characters`,
+    MAX_LENGTH: `Username must be less than ${SYSTEM_CONSTANTS.VALIDATION.MAX_USERNAME_LENGTH} characters`,
+    INVALID_CHARACTERS: 'Username contains invalid characters'
+  },
+  NAME: {
+    REQUIRED: 'Please enter your name',
+    MIN_LENGTH: `Name must be at least ${SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`,
+    MAX_LENGTH: `Name must be less than ${SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH} characters`
+  },
+  PASSWORD: {
+    REQUIRED: 'Password is required',
+    CURRENT_REQUIRED: 'Current password is required',
+    NEW_REQUIRED: 'New password is required',
+    MIN_LENGTH: `Password must be at least ${SYSTEM_CONSTANTS.VALIDATION.MIN_PASSWORD_LENGTH} characters`,
+    MAX_LENGTH: `Password must be less than ${SYSTEM_CONSTANTS.VALIDATION.MAX_PASSWORD_LENGTH} characters`,
+    CONFIRM_REQUIRED: 'Please confirm your password',
+    MISMATCH: 'Passwords do not match',
+    CURRENT_INCORRECT: 'Current password is incorrect',
+    WEAK: 'Password is too weak. Use a mix of letters, numbers, and symbols',
+    SAME_AS_OLD: 'New password must be different from current password'
+  },
+  SAVE: {
+    ERROR: 'Failed to save data. Please try again.',
+    SUCCESS: 'Data saved successfully'
+  },
+  // Messages that match useUserData hook responses
+  USER_DATA: {
+    LOAD_ERROR: 'Failed to load user data',
+    SAVE_ERROR: 'Failed to save user data',
+    UPDATE_ERROR: 'Failed to update user data',
+    DELETE_ERROR: 'Failed to delete user data',
+    NO_USER_DATA: 'No user data found'
+  },
+  AUTH: {
+    PASSWORD_CHANGE_ERROR: 'Failed to change password',
+    VERIFY_ERROR: 'Failed to verify password'
+  },
+  // Success messages for toast notifications
+  SUCCESS: {
+    USERNAME_UPDATED: 'Username updated successfully',
+    PASSWORD_CHANGED: 'Password changed successfully',
+    DATA_SAVED: 'Data saved successfully'
+  },
+  // Error messages for toast notifications
+  ERROR: {
+    USERNAME_UPDATE: 'Failed to update username',
+    PASSWORD_CHANGE: 'Failed to change password',
+    GENERIC: 'An error occurred. Please try again.'
+  },
+  GENERIC: {
+    REQUIRED: 'This field is required',
+    INVALID: 'Invalid input',
+    NETWORK_ERROR: 'Network error. Please check your connection',
+    UNAUTHORIZED: 'You are not authorized to perform this action',
+    SERVER_ERROR: 'Server error. Please try again later'
+  }
+} as const;
+
+
 
 export const WEEK_DAYS = [
   { key: 'sunday', label: 'Sun', full: 'Sunday', index: 0 },
