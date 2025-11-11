@@ -10,14 +10,18 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSettings } from '@/lib/context/settings-context';
 
+import { GOAL_CONFIG, VALIDATION_MESSAGES, SYSTEM_CONSTANTS } from '@/lib/core/constants';
+import type { UserData } from '@/lib/types';
 import {
   AlertCircle,
-  Bell,
   Calendar,
   Database,
+  Eye,
+  EyeOff,
   FileDown,
   FileUp,
   Loader2,
+  Lock,
   Moon,
   Palette,
   RefreshCw,
@@ -26,23 +30,46 @@ import {
   Sun,
   Target,
   TrendingUp,
+  User,
   Zap
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ValidatedSelect } from '../form/validated-select';
-import { GOAL_CONFIG } from '@/lib/core/constants';
+import { mapUserDataError, ValidationHelpers } from '@/lib/hooks/use-user-data';
 
 interface SettingViewProps {
   isSettingVisible: boolean;
   setSettingVisible: (visible: boolean) => void;
+  userData: UserData | null;
+  onUpdateUserData: (field: keyof Omit<UserData, 'passwordHash'>, value: any) => Promise<{ success: boolean }>;
+  onChangePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
-export function SettingView({ isSettingVisible, setSettingVisible }: SettingViewProps) {
+export function SettingView({
+  isSettingVisible,
+  setSettingVisible,
+  userData,
+  onUpdateUserData,
+  onChangePassword
+}: SettingViewProps) {
   const [activeTab, setActiveTab] = useState('general');
   const { theme, setTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Username edit state
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState(userData?.name || '');
 
   const {
     settings,
@@ -52,12 +79,9 @@ export function SettingView({ isSettingVisible, setSettingVisible }: SettingView
     updateAppearance,
     updateHabits,
     updateGoals,
-    updateData,
     resetSettings,
     exportAllData,
-    importAllData,
-    importSettings,
-    refreshSettings
+    importAllData
   } = useSettings();
 
   const handleImportClick = () => {
@@ -106,13 +130,69 @@ export function SettingView({ isSettingVisible, setSettingVisible }: SettingView
       }
     }
   };
-  console.log(settings.goals.defaultCategory);
+
+  const handleUsernameUpdate = async () => {
+    // Client-side validation
+    const validation = ValidationHelpers.username(newUsername);
+
+    if (!validation.valid) {
+      toast.error(validation.error);
+      return;
+    }
+
+    // Call useUserData hook
+    const result = await onUpdateUserData('name', validation.value);
+
+    if (result.success) {
+      toast.success(VALIDATION_MESSAGES.SUCCESS.USERNAME_UPDATED);
+      setIsEditingUsername(false);
+    } else {
+      toast.error(VALIDATION_MESSAGES.ERROR.USERNAME_UPDATE);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    // Client-side validation first
+    const validation = ValidationHelpers.newPassword(currentPassword, newPassword, confirmPassword);
+
+    if (!validation.valid) {
+      // Show the first error as a toast
+      const firstError = Object.values(validation.errors || {})[0];
+      if (firstError) {
+        toast.error(firstError);
+      }
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    // Call useUserData hook - changePassword returns: { success: boolean; error?: string }
+    const result = await onChangePassword(currentPassword, newPassword);
+
+    setIsChangingPassword(false);
+
+    if (result.success) {
+      toast.success(VALIDATION_MESSAGES.SUCCESS.PASSWORD_CHANGED);
+
+      // Clear form on success
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    } else {
+      // Map the error from useUserData to user-friendly message
+      const errorMessage = mapUserDataError(result.error);
+      toast.error(errorMessage);
+    }
+  };
 
   const tabIcons = {
+    account: User,
     general: Palette,
     habits: Target,
     goals: TrendingUp,
-    // notifications: Bell,
     data: Database,
     advanced: Zap
   };
@@ -178,7 +258,162 @@ export function SettingView({ isSettingVisible, setSettingVisible }: SettingView
               </TabsList>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 max-h-[60vh] overflow-y-auto">
+              {/* Account Settings Tab */}
+              <TabsContent value="account" className="space-y-4 mt-0">
+                <Card className="border-border/50 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <CardHeader className="relative pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className="p-2 bg-linear-to-br from-primary/20 to-primary/10 rounded-lg border border-primary/20">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
+                      Profile Information
+                    </CardTitle>
+                    <CardDescription className="text-sm">Manage your account details</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 relative">
+                    <div className="space-y-2">
+                      <Label htmlFor="username" className="text-sm font-semibold">
+                        Username
+                      </Label>
+                      {isEditingUsername ? (
+                        <div className="flex gap-2">
+                          <Input
+                            id="username"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            className="h-10"
+                            maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_USERNAME_LENGTH}
+                          />
+                          <Button onClick={handleUsernameUpdate} size="sm">
+                            Save
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setIsEditingUsername(false);
+                              setNewUsername(userData?.name || '');
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input id="username" value={userData?.name || ''} disabled className="h-10" />
+                          <Button onClick={() => setIsEditingUsername(true)} variant="outline" size="sm">
+                            Edit
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/50 shadow-lg hover:shadow-xl transition-all duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <div className="p-2 bg-linear-to-br from-destructive/20 to-destructive/10 rounded-lg border border-destructive/20">
+                        <Lock className="h-4 w-4 text-destructive" />
+                      </div>
+                      Password & Security
+                    </CardTitle>
+                    <CardDescription className="text-sm">Update your password</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password" className="text-sm font-semibold">
+                        Current Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="current-password"
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="h-10 pr-10"
+                          placeholder="Enter current password"
+                          maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_PASSWORD_LENGTH}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-10 w-10 px-3"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password" className="text-sm font-semibold">
+                        New Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="new-password"
+                          type={showNewPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="h-10 pr-10"
+                          placeholder="Enter new password"
+                          maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_PASSWORD_LENGTH}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-10 w-10 px-3"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password" className="text-sm font-semibold">
+                        Confirm New Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="h-10 pr-10"
+                          placeholder="Confirm new password"
+                          maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_PASSWORD_LENGTH}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-10 w-10 px-3"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button onClick={handlePasswordChange} disabled={isChangingPassword} className="w-full">
+                      {isChangingPassword ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Changing Password...
+                        </>
+                      ) : (
+                        'Change Password'
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* General Settings Tab */}
               <TabsContent value="general" className="space-y-4 mt-0">
                 <Card className="border-border/50 shadow-lg hover:shadow-xl transition-all duration-300">
@@ -396,42 +631,6 @@ export function SettingView({ isSettingVisible, setSettingVisible }: SettingView
                 </Card>
               </TabsContent>
 
-              {/* Notifications Tab */}
-              {/* <TabsContent value="notifications" className="space-y-4 mt-0">
-                <Card className="border-border/50 shadow-lg">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Bell className="h-4 w-4 text-chart-2" />
-                      Notification Center
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {Object.entries({
-                      habitReminders: { label: 'Habit Reminders', desc: 'Scheduled habits' },
-                      goalDeadlines: { label: 'Goal Deadlines', desc: 'Approaching deadlines' },
-                      streakMilestones: { label: 'Streak Milestones', desc: 'Achievement celebrations' },
-                      dailySummary: { label: 'Daily Summary', desc: 'End of day report' },
-                      weeklySummary: { label: 'Weekly Report', desc: 'Progress insights' },
-                      motivationalQuotes: { label: 'Motivational Quotes', desc: 'Daily inspiration' }
-                    }).map(([key, { label, desc }]) => (
-                      <div
-                        key={key}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50"
-                      >
-                        <div className="space-y-0.5">
-                          <Label className="text-sm font-semibold">{label}</Label>
-                          <p className="text-xs text-muted-foreground">{desc}</p>
-                        </div>
-                        <Switch
-                          checked={settings.notifications[key as keyof typeof settings.notifications]}
-                          onCheckedChange={(checked) => updateNotifications({ [key]: checked })}
-                        />
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </TabsContent> */}
-
               {/* Data Management Tab */}
               <TabsContent value="data" className="space-y-4 mt-0">
                 <Card className="border-border/50 shadow-lg">
@@ -442,40 +641,6 @@ export function SettingView({ isSettingVisible, setSettingVisible }: SettingView
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="space-y-0.5">
-                          <Label className="text-sm font-semibold">Automatic Backups</Label>
-                          <p className="text-xs text-muted-foreground">Secure local storage</p>
-                        </div>
-                        <Switch
-                          checked={settings.data.autoBackup}
-                          onCheckedChange={(checked) => updateData({ autoBackup: checked })}
-                        />
-                      </div>
-
-                      {settings.data.autoBackup && (
-                        <div className="space-y-2">
-                          <Label className="text-sm font-semibold">Frequency</Label>
-                          <Select
-                            value={settings.data.backupFrequency}
-                            onValueChange={(value: any) => updateData({ backupFrequency: value })}
-                          >
-                            <SelectTrigger className="h-10">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="daily">Daily</SelectItem>
-                              <SelectItem value="weekly">Weekly</SelectItem>
-                              <SelectItem value="monthly">Monthly</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-
-                    <Separator /> */}
-
                     <div className="grid md:grid-cols-2 gap-3">
                       <Button
                         variant="outline"

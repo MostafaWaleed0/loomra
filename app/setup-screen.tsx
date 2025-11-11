@@ -3,25 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Target, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState } from 'react';
+import { SYSTEM_CONSTANTS, VALIDATION_MESSAGES } from './lib/core/constants';
+import { ValidationHelpers } from './lib/hooks/use-user-data';
 import { UserSetupData } from './lib/types';
-
-const VALIDATION_MESSAGES = {
-  NAME: {
-    REQUIRED: 'Please enter your name',
-    MIN_LENGTH: 'Name must be at least 2 characters',
-    MAX_LENGTH: 'Name must be less than 50 characters'
-  },
-  PASSWORD: {
-    REQUIRED: 'Please enter a password',
-    MIN_LENGTH: 'Password must be at least 8 characters',
-    MAX_LENGTH: 'Password must be less than 50 characters',
-    CONFIRM_REQUIRED: 'Please confirm your password',
-    MISMATCH: 'Passwords do not match'
-  },
-  SAVE: {
-    ERROR: 'Failed to save data. Please try again.'
-  }
-} as const;
 
 interface SetupScreenProps {
   onComplete: () => void;
@@ -72,29 +56,22 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
     const newErrors: Record<string, string> = {};
 
     if (currentStep === 1) {
-      const trimmedName = name.trim();
-      if (!trimmedName) {
-        newErrors.name = VALIDATION_MESSAGES.NAME.REQUIRED;
-      } else if (trimmedName.length < 2) {
-        newErrors.name = VALIDATION_MESSAGES.NAME.MIN_LENGTH;
-      } else if (trimmedName.length > 50) {
-        newErrors.name = VALIDATION_MESSAGES.NAME.MAX_LENGTH;
+      const validation = ValidationHelpers.username(name);
+      if (!validation.valid) {
+        newErrors.name = validation.error!;
       }
     }
 
     if (currentStep === 2) {
-      if (!password) {
-        newErrors.password = VALIDATION_MESSAGES.PASSWORD.REQUIRED;
-      } else if (password.length < 8) {
-        newErrors.password = VALIDATION_MESSAGES.PASSWORD.MIN_LENGTH;
-      } else if (password.length > 50) {
-        newErrors.password = VALIDATION_MESSAGES.PASSWORD.MAX_LENGTH;
-      }
+      const validation = ValidationHelpers.newPassword('', password, confirmPassword);
 
-      if (!confirmPassword) {
-        newErrors.confirmPassword = VALIDATION_MESSAGES.PASSWORD.CONFIRM_REQUIRED;
-      } else if (password !== confirmPassword) {
-        newErrors.confirmPassword = VALIDATION_MESSAGES.PASSWORD.MISMATCH;
+      if (!validation.valid && validation.errors) {
+        if (validation.errors.new) {
+          newErrors.password = validation.errors.new;
+        }
+        if (validation.errors.confirm) {
+          newErrors.confirmPassword = validation.errors.confirm;
+        }
       }
     }
 
@@ -128,7 +105,6 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
           onComplete();
         }, 1500);
       } else {
-        // Handle error
         setIsSaving(false);
         setErrors({ save: VALIDATION_MESSAGES.SAVE.ERROR });
         setCurrentStep(currentStep - 1);
@@ -290,7 +266,7 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
                       placeholder="John Doe"
                       className="w-full px-6 py-4 bg-background border-2 border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-lg"
                       autoFocus
-                      maxLength={50}
+                      maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_USERNAME_LENGTH}
                     />
                     <AnimatePresence>
                       {errors.name && (
@@ -323,7 +299,7 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
                       placeholder="Enter a strong password"
                       className="w-full px-6 py-4 bg-background border-2 border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-lg"
                       autoFocus
-                      maxLength={50}
+                      maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_PASSWORD_LENGTH}
                     />
                     <AnimatePresence>
                       {errors.password && (
@@ -351,7 +327,7 @@ export function SetupScreen({ onComplete, saveUserData }: SetupScreenProps) {
                       onKeyPress={handleKeyPress}
                       placeholder="Confirm your password"
                       className="w-full px-6 py-4 bg-background border-2 border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-lg"
-                      maxLength={50}
+                      maxLength={SYSTEM_CONSTANTS.VALIDATION.MAX_PASSWORD_LENGTH}
                     />
                     <AnimatePresence>
                       {errors.confirmPassword && (
