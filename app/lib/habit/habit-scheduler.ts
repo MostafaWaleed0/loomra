@@ -15,6 +15,14 @@ import type {
 
 export class HabitScheduler {
   static shouldCompleteOnDate(habit: Habit, completions: HabitCompletion[], date: DateString): boolean {
+    // First check if habit is scheduled based on frequency rules
+    const isScheduled = HabitFrequencyManager.shouldCompleteOnDate(habit.frequency, date, habit.startDate);
+
+    // If not scheduled, don't show even if completed
+    if (!isScheduled) {
+      return false;
+    }
+
     // Check if already completed on this date (and not skipped)
     const isCompletedOnThisDate = HabitCompletionManager.isCompletedOnDate(completions, habit.id, date);
     if (isCompletedOnThisDate) {
@@ -29,8 +37,7 @@ export class HabitScheduler {
       }
     }
 
-    // Check if habit is scheduled based on frequency rules
-    return HabitFrequencyManager.shouldCompleteOnDate(habit.frequency, date, habit.startDate);
+    return true;
   }
 
   static getHabitsForDate(habits: Habit[], completions: HabitCompletion[], date: DateString): Habit[] {
@@ -41,8 +48,8 @@ export class HabitScheduler {
     const record = HabitCompletionManager.getRecord(completions, habit.id, date);
     const isScheduled = this.shouldCompleteOnDate(habit, completions, date);
     const isCompleted = (record?.completed && !record.skipped) || false;
-    const isSkipped = (record?.skipped) || false;
-    const actualAmount = (record?.actualAmount) || 0;
+    const isSkipped = record?.skipped || false;
+    const actualAmount = record?.actualAmount || 0;
     const canComplete = isScheduled && !DateUtils.isFutureDate(date);
 
     return {

@@ -31,6 +31,11 @@ export class HabitStatusManager {
       // Use HabitScheduler logic to determine if should complete on this date
       const shouldComplete = HabitScheduler.shouldCompleteOnDate(habit, completions, dateString);
 
+      // If not scheduled at all
+      if (!wasOriginallyScheduled) {
+        return HABIT_CONFIG.STATUS.NOT_SCHEDULED;
+      }
+
       // Check if it was actually completed on this specific date
       const record = HabitCompletionManager.getRecord(completions, habit.id, dateString);
       if (record?.completed && !record.skipped) {
@@ -43,13 +48,8 @@ export class HabitStatusManager {
       }
 
       // If originally scheduled but now not scheduled due to period completion
-      if (wasOriginallyScheduled && !shouldComplete) {
-        return HABIT_CONFIG.STATUS.PERIOD_COMPLETED;
-      }
-
-      // If not scheduled at all
       if (!shouldComplete) {
-        return HABIT_CONFIG.STATUS.NOT_SCHEDULED;
+        return HABIT_CONFIG.STATUS.PERIOD_COMPLETED;
       }
 
       // Check if future date
