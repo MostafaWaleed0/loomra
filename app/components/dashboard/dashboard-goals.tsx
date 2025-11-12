@@ -13,6 +13,8 @@ export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
     const today = DateUtils.getCurrentDateString();
 
     return goals.filter((goal) => {
+      if (goal.status === 'paused' || goal.status === 'completed') return false;
+
       if (!goal.deadline) return false;
 
       const daysDiff = DateUtils.calculateDaysBetween(today, DateUtils.formatDate(goal.deadline));
@@ -35,6 +37,11 @@ export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
     });
   };
 
+  const activeGoals = goals.filter((g) => g.status === 'active');
+  const completedGoals = goals.filter((g) => g.status === 'completed');
+  const completedCount = completedGoals.length;
+  const filteredGoals = filterGoalsByPeriod(activeGoals);
+
   return (
     <Card>
       <CardHeader className="flex items-center justify-between">
@@ -42,6 +49,9 @@ export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
           <CardTitle className="flex items-center gap-2 text-2xl">
             <Target className="size-6 text-primary" />
             Active Goals
+            {completedCount > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">({completedCount} Completed)</span>
+            )}
           </CardTitle>
         </div>
         <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -60,18 +70,17 @@ export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
           </SelectContent>
         </Select>
       </CardHeader>
-
       <CardContent className="space-y-2">
-        {goals.length === 0 ? (
+        {activeGoals.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="size-12 text-primary mb-4" />
-            <h3 className="text-lg font-semibold text-muted-foreground mb-2">No goals yet</h3>
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">No active goals</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
               Start by creating your first goal to track your progress and achieve your objectives.
             </p>
           </div>
-        ) : filterGoalsByPeriod(goals).length > 0 ? (
-          filterGoalsByPeriod(goals).map((goal) => <GoalListItem key={goal.id} goal={goal} />)
+        ) : filteredGoals.length > 0 ? (
+          filteredGoals.map((goal) => <GoalListItem key={goal.id} goal={goal} />)
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="size-12 text-primary mb-4" />
