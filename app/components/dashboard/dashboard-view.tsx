@@ -1,4 +1,3 @@
-'use client';
 import { useUserData } from '@/lib/hooks/use-user-data';
 import type {
   GoalStats,

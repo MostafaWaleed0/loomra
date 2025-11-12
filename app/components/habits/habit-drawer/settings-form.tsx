@@ -1,5 +1,3 @@
-'use client';
-
 import { DatePicker } from '@/components/form/date-picker';
 import { ValidatedSelect } from '@/components/form/validated-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

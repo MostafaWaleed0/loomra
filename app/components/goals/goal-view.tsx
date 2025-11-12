@@ -1,9 +1,7 @@
-'use client';
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useGoalForm } from '@/lib/hooks/use-goal-form';
-import { useSettings } from '@/lib/context/settings-context';
+import { AppSettings } from '@/lib/tauri-api';
 import type { DeleteStrategy, Goal, GoalStats, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Award, CheckCircle2, Plus, Target, TrendingUp } from 'lucide-react';
@@ -20,7 +18,6 @@ import { GoalMetadataGrid } from './goal-metadata-grid';
 import { GoalNotesCard } from './goal-notes-card';
 import { GoalProgressSection } from './goal-progress-section';
 import { HabitsPanel } from './habits-panel';
-import { AppSettings } from '@/lib/tauri-api';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },

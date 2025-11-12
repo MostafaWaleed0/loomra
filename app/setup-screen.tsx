@@ -1,4 +1,3 @@
-'use client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Target, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
