@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
 import { useLocalState } from '@/lib/hooks/use-local-state';
-import { UseTasksReturn } from '@/lib/types';
+import { UseGoalsReturn, UseTasksReturn } from '@/lib/types';
 import { AlertTriangle, BarChart3, Calendar, CheckCircle2 } from 'lucide-react';
 import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from './task-panel';
@@ -31,7 +31,15 @@ const StatsCard = ({ icon: Icon, title, value, subtitle, color = 'blue' }: any) 
   );
 };
 
-export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, handleDeleteTask, handleEditTask }: UseTasksReturn) {
+export function TaskView({
+  tasks,
+  stats,
+  handleToggleTask,
+  handleCreateTask,
+  handleDeleteTask,
+  handleEditTask,
+  getGoalByTaskId
+}: UseTasksReturn & { getGoalByTaskId: UseGoalsReturn['getGoalByTaskId'] }) {
   const [taskFilter, setTaskFilter] = useLocalState('taskView.tasks.taskFilter', 'all');
   const [timeFilter, setTimeFilter] = useLocalState('taskView.tasks.timeFilter', 'all');
 
@@ -63,6 +71,7 @@ export function TaskView({ tasks, stats, handleToggleTask, handleCreateTask, han
           timeFilter={timeFilter}
           onTaskFilterChange={setTaskFilter}
           onTimeFilterChange={setTimeFilter}
+          getGoalByTaskId={getGoalByTaskId}
         />
       </div>
     </div>

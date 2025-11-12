@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ColorUtils, DateUtils, TASK_CONFIG } from '@/lib/core';
-import type { TaskPriority, TaskUpdates, TaskWithStats } from '@/lib/types';
+import type { TaskPriority, TaskUpdates, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
@@ -28,6 +28,7 @@ import {
   ListTodo,
   MoreVertical,
   Plus,
+  Target,
   Trash2
 } from 'lucide-react';
 import { useState } from 'react';
@@ -140,13 +141,14 @@ function TaskEditRow({
 
 interface TaskDisplayRowProps {
   task: TaskWithStats;
+  goalTitle: string | null;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onPriorityChange: (priority: TaskPriority) => void;
 }
 
-function TaskDisplayRow({ task, onToggle, onEdit, onDelete, onPriorityChange }: TaskDisplayRowProps) {
+function TaskDisplayRow({ task, goalTitle, onToggle, onEdit, onDelete, onPriorityChange }: TaskDisplayRowProps) {
   return (
     <>
       <Button onClick={onToggle} aria-label={task.done ? 'Mark as incomplete' : 'Mark as complete'} variant="ghost" size="icon">
@@ -161,18 +163,27 @@ function TaskDisplayRow({ task, onToggle, onEdit, onDelete, onPriorityChange }: 
           {task.priority && <PriorityBadge priority={task.priority} />}
         </div>
 
-        {task.dueDate && (
-          <div
-            className={cn(
-              'flex items-center gap-1 text-sm',
-              task.isOverdue ? 'text-red-600' : task.daysUntilDue === 0 ? 'text-orange-600' : 'text-muted-foreground'
-            )}
-          >
-            <CalendarIcon className="size-4 flex-shrink-0" />
-            <span className="truncate">{DateUtils.formatDateForDisplay(task.dueDate, { format: 'relative' })}</span>
-            {task.isOverdue && <AlertTriangle className="size-4 text-red-500 flex-shrink-0" />}
-          </div>
-        )}
+        <div className="flex flex-col gap-1">
+          {goalTitle && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Target className="size-4 shrink-0" />
+              <span className="truncate">{goalTitle}</span>
+            </div>
+          )}
+
+          {task.dueDate && (
+            <div
+              className={cn(
+                'flex items-center gap-1 text-sm',
+                task.isOverdue ? 'text-red-600' : task.daysUntilDue === 0 ? 'text-orange-600' : 'text-muted-foreground'
+              )}
+            >
+              <CalendarIcon className="size-4 shrink-0" />
+              <span className="truncate">{DateUtils.formatDateForDisplay(task.dueDate, { format: 'relative' })}</span>
+              {task.isOverdue && <AlertTriangle className="size-4 text-red-500 shrink-0" />}
+            </div>
+          )}
+        </div>
       </div>
 
       <DropdownMenu>
@@ -351,6 +362,7 @@ interface TaskPanelProps {
   timeFilter?: TimeFilter;
   onTaskFilterChange?: (filter: TaskFilter) => void;
   onTimeFilterChange?: (filter: TimeFilter) => void;
+  getGoalByTaskId: UseGoalsReturn['getGoalByTaskId'];
 }
 
 export function TaskPanel({
@@ -361,6 +373,7 @@ export function TaskPanel({
   onDeleteTask,
   onEditTask,
   getTasksByGoal,
+  getGoalByTaskId,
   showFilter = true,
   taskFilter: externalTaskFilter,
   timeFilter: externalTimeFilter,
@@ -590,39 +603,45 @@ export function TaskPanel({
 
         {displayTasks.length > 0 && (
           <div className="flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-            {sortedTasks.map((task) => (
-              <div
-                key={task.id}
-                className={cn(
-                  'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
-                  task.done
-                    ? 'bg-muted/20 opacity-75'
-                    : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
-                )}
-              >
-                {editingTaskId === task.id ? (
-                  <TaskEditRow
-                    editingTitle={editingTitle}
-                    editingPriority={editingPriority}
-                    editingDueDate={editingDueDate}
-                    onTitleChange={setEditingTitle}
-                    onPriorityChange={setEditingPriority}
-                    onDueDateChange={setEditingDueDate}
-                    onSave={() => handleSaveEdit(task.id)}
-                    onCancel={handleCancelEdit}
-                    onKeyDown={(e) => handleKeyDown(e, task.id)}
-                  />
-                ) : (
-                  <TaskDisplayRow
-                    task={task}
-                    onToggle={() => onToggleTask(task.id)}
-                    onEdit={() => handleStartEdit(task)}
-                    onDelete={() => onDeleteTask(task.id)}
-                    onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
-                  />
-                )}
-              </div>
-            ))}
+            {sortedTasks.map((task) => {
+              const goalData = getGoalByTaskId ? getGoalByTaskId(task.id) : null;
+              const goalTitle = goalData?.title || null;
+
+              return (
+                <div
+                  key={task.id}
+                  className={cn(
+                    'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
+                    task.done
+                      ? 'bg-muted/20 opacity-75'
+                      : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
+                  )}
+                >
+                  {editingTaskId === task.id ? (
+                    <TaskEditRow
+                      editingTitle={editingTitle}
+                      editingPriority={editingPriority}
+                      editingDueDate={editingDueDate}
+                      onTitleChange={setEditingTitle}
+                      onPriorityChange={setEditingPriority}
+                      onDueDateChange={setEditingDueDate}
+                      onSave={() => handleSaveEdit(task.id)}
+                      onCancel={handleCancelEdit}
+                      onKeyDown={(e) => handleKeyDown(e, task.id)}
+                    />
+                  ) : (
+                    <TaskDisplayRow
+                      task={task}
+                      goalTitle={goalTitle}
+                      onToggle={() => onToggleTask(task.id)}
+                      onEdit={() => handleStartEdit(task)}
+                      onDelete={() => onDeleteTask(task.id)}
+                      onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

@@ -108,6 +108,7 @@ interface GoalDetailViewProps {
   setShouldAnimate: (value: boolean) => void;
   deadlineWarning: number;
   showProgressPercentage: boolean;
+  getGoalByTaskId: UseGoalsReturn['getGoalByTaskId'];
 }
 
 function GoalDetailView({
@@ -122,6 +123,7 @@ function GoalDetailView({
   onEditTask,
   onDeleteTask,
   getHabitsByGoalId,
+  getGoalByTaskId,
   isEditorOpen,
   setIsEditorOpen,
   shouldAnimate,
@@ -184,6 +186,7 @@ function GoalDetailView({
               onDeleteTask={onDeleteTask}
               onEditTask={onEditTask}
               getTasksByGoal={(goalId) => tasks.filter((t) => t.goalId === goalId)}
+              getGoalByTaskId={getGoalByTaskId}
               showFilter={false}
             />
             <HabitsPanel getHabitsByGoalId={getHabitsByGoalId} selectedGoalId={goal.id} />
@@ -256,6 +259,7 @@ export function GoalView({
   onEditTask,
   onDeleteTask,
   getHabitsByGoalId,
+  getGoalByTaskId,
   settings
 }: GoalViewProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -314,6 +318,7 @@ export function GoalView({
         onEditTask={onEditTask}
         onDeleteTask={onDeleteTask}
         getHabitsByGoalId={getHabitsByGoalId}
+        getGoalByTaskId={getGoalByTaskId}
         setIsEditorOpen={setIsEditorOpen}
         isEditorOpen={isEditorOpen}
         shouldAnimate={shouldAnimate}

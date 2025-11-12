@@ -543,6 +543,7 @@ export interface UseGoalsReturn {
   getGoalsByCategory: () => Record<string, Goal[]>;
   getGoalsByStatus: () => Record<string, Goal[]>;
   getGoalById: (goalId: string) => Goal | null;
+  getGoalByTaskId: (taskId: string) => GoalWithStats | null;
   calculateGoalProgress: (goalId: string) => number;
 }
 
