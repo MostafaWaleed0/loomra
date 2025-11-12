@@ -1,5 +1,3 @@
-'use client';
-
 import { ColorPicker } from '@/components/form/color-picker';
 import { IconSelector } from '@/components/form/icon-selector';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

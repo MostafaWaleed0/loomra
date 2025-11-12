@@ -1,5 +1,3 @@
-'use client';
-
 import { ErrorFound } from '@/components/form/error-found';
 import { ValidatedTextarea } from '@/components/form/validated-textarea';
 import { Button } from '@/components/ui/button';
