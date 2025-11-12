@@ -5,7 +5,7 @@ import { AppSettings } from '@/lib/tauri-api';
 import type { DeleteStrategy, Goal, GoalStats, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Award, CheckCircle2, Plus, Target, TrendingUp } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from '../tasks/task-panel';
 import { EmptyState } from './empty-state';
@@ -132,6 +132,17 @@ function GoalDetailView({
   const { formData, validationErrors, updateField, resetForm, hasErrors } = useGoalForm(goal);
 
   const goalTasks = tasks.filter((t) => t.goalId === goal.id);
+  const incompleteTasks = goalTasks.filter((t) => !t.done);
+
+  useEffect(() => {
+    if (goalTasks.length > 0) {
+      if (incompleteTasks.length === 0 && goal.status !== 'completed') {
+        onStatusChange(goal.id, 'completed');
+      } else if (incompleteTasks.length > 0 && goal.status === 'completed') {
+        onStatusChange(goal.id, 'active');
+      }
+    }
+  }, [goalTasks.length, incompleteTasks.length, goal.status, goal.id, onStatusChange]);
 
   function handleEdit() {
     resetForm(goal);
@@ -141,6 +152,13 @@ function GoalDetailView({
   function handleDeleteConfirm(strategy: DeleteStrategy) {
     onDelete(goal.id, strategy);
     onBack();
+  }
+
+  async function handleCompleteWithTasks() {
+    const promises = incompleteTasks.map((task) => onToggleTask(task.id));
+    await Promise.all(promises);
+
+    onStatusChange(goal.id, 'completed');
   }
 
   return (
@@ -162,9 +180,11 @@ function GoalDetailView({
           <Card>
             <GoalDetailHeader
               goal={goal}
+              taskCount={incompleteTasks.length}
               onEdit={handleEdit}
               onStatusChange={(action) => onStatusChange(goal.id, action)}
               onDelete={() => setDeleteDialogOpen(true)}
+              onCompleteWithTasks={handleCompleteWithTasks}
             />
             <CardContent>
               <div className="space-y-6">
