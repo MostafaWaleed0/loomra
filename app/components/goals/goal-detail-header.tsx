@@ -13,13 +13,32 @@ import { CheckCircle2, Edit3, EllipsisVertical, Pause, Target, Trash2 } from 'lu
 
 interface GoalDetailHeaderProps {
   goal: Goal;
+  taskCount: number;
   onEdit: () => void;
   onStatusChange: (action: GoalStatus) => void;
   onDelete: () => void;
+  onCompleteWithTasks?: () => void;
 }
 
-export function GoalDetailHeader({ goal, onEdit, onStatusChange, onDelete }: GoalDetailHeaderProps) {
+export function GoalDetailHeader({
+  goal,
+  taskCount,
+  onEdit,
+  onStatusChange,
+  onDelete,
+  onCompleteWithTasks
+}: GoalDetailHeaderProps) {
   const Icon = UIUtils.getIconComponent(goal.icon);
+
+  const hasTasksToComplete = taskCount > 0;
+
+  function handleComplete() {
+    if (hasTasksToComplete && onCompleteWithTasks) {
+      onCompleteWithTasks();
+    } else {
+      onStatusChange('completed');
+    }
+  }
 
   return (
     <CardHeader>
@@ -46,10 +65,17 @@ export function GoalDetailHeader({ goal, onEdit, onStatusChange, onDelete }: Goa
             <DropdownMenuItem onClick={onEdit}>
               <Edit3 className="size-4" /> Edit Goal
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {goal.status !== 'completed' && (
-              <DropdownMenuItem onClick={() => onStatusChange('completed')}>
+
+            {((goal.status !== 'completed' && hasTasksToComplete) || goal.status === 'paused' || goal.status === 'active') && (
+              <DropdownMenuSeparator />
+            )}
+
+            {goal.status !== 'completed' && hasTasksToComplete && (
+              <DropdownMenuItem onClick={handleComplete}>
                 <CheckCircle2 className="size-4" /> Mark as Completed
+                <span className="ml-auto text-xs text-muted-foreground">
+                  ({taskCount} {taskCount === 1 ? 'task' : 'tasks'})
+                </span>
               </DropdownMenuItem>
             )}
             {goal.status === 'paused' && (
@@ -62,6 +88,7 @@ export function GoalDetailHeader({ goal, onEdit, onStatusChange, onDelete }: Goa
                 <Pause className="size-4" /> Pause Goal
               </DropdownMenuItem>
             )}
+
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={onDelete}>
               <Trash2 className="size-4" /> Delete Goal
