@@ -269,6 +269,15 @@ export function useGoals(
     [goalsWithStats]
   );
 
+  const getGoalByTaskId = useCallback(
+    (taskId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task || !task.goalId) return null;
+      return goalsWithStats.find((g) => g.id === task.goalId) || null;
+    },
+    [tasks, goalsWithStats]
+  );
+
   const getGoalsByCategory = useCallback(() => GoalFactory.getGoalsByCategory(goalsWithStats), [goalsWithStats]);
 
   const getGoalsByStatus = useCallback(() => GoalFactory.getGoalsByStatus(goalsWithStats), [goalsWithStats]);
@@ -296,6 +305,7 @@ export function useGoals(
     getGoalsByCategory,
     getGoalsByStatus,
     getGoalById,
+    getGoalByTaskId,
     calculateGoalProgress
   };
 }

@@ -235,6 +235,7 @@ export default function GoalsTrackerApp() {
                 goalsStats={goalsCtx.stats}
                 habitsStats={habitsCtx.stats}
                 getHabitsWithMetadata={habitsCtx.getHabitsWithMetadata}
+                getGoalByTaskId={goalsCtx.getGoalByTaskId}
                 completions={habitsCtx.completions}
                 onSetHabitCompletion={habitsCtx.setHabitCompletion}
                 tasks={tasksCtx.tasks}
@@ -258,7 +259,7 @@ export default function GoalsTrackerApp() {
               />
             )}
             {activeView === 'habits' && <HabitView {...habitsCtx} goals={goalsCtx.goals} />}
-            {activeView === 'tasks' && <TaskView {...tasksCtx} />}
+            {activeView === 'tasks' && <TaskView {...tasksCtx} getGoalByTaskId={goalsCtx.getGoalByTaskId} />}
           </div>
         </div>
       </SidebarInset>

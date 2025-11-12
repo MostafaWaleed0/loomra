@@ -7,6 +7,7 @@ import type {
   HabitStats,
   TaskStats,
   TaskWithStats,
+  UseGoalsReturn,
   UseHabitsReturn,
   UseTasksReturn
 } from '@/lib/types';
@@ -31,6 +32,7 @@ interface DashboardViewProps {
   onToggleTask: UseTasksReturn['handleToggleTask'];
   onEditTask: UseTasksReturn['handleEditTask'];
   onDeleteTask: UseTasksReturn['handleDeleteTask'];
+  getGoalByTaskId: UseGoalsReturn['getGoalByTaskId'];
 }
 
 export function DashboardView({
@@ -39,6 +41,7 @@ export function DashboardView({
   tasksStats,
   habitsStats,
   getHabitsWithMetadata,
+  getGoalByTaskId,
   completions,
   onSetHabitCompletion,
   goalsStats,
@@ -168,6 +171,7 @@ export function DashboardView({
             onToggleTask={onToggleTask}
             onDeleteTask={onDeleteTask}
             onEditTask={onEditTask}
+            getGoalByTaskId={getGoalByTaskId}
           />
         </div>
         <div className="col-span-2 space-y-6">
