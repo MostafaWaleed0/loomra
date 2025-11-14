@@ -11,8 +11,8 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { ColorUtils, DateUtils, TASK_CONFIG } from '@/lib/core';
-import type { TaskPriority, TaskUpdates, TaskWithStats, UseGoalsReturn } from '@/lib/types';
+import { ColorUtils, DateUtils, TASK_CONFIG, UIUtils } from '@/lib/core';
+import type { GoalWithStats, TaskPriority, TaskUpdates, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
@@ -27,11 +27,16 @@ import {
   MoreVertical,
   Plus,
   Target,
-  Trash2
+  Trash2,
+  Search,
+  X,
+  Sparkles,
+  TrendingUp
 } from 'lucide-react';
 import { useState } from 'react';
 import { DatePicker } from '../form/date-picker';
 import { Badge } from '../ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 export type TaskFilter = 'all' | 'active' | 'completed';
 export type TimeFilter = 'all' | 'today' | 'week' | 'overdue' | 'no-date';
@@ -54,7 +59,7 @@ interface PriorityBadgeProps {
 function PriorityBadge({ priority }: PriorityBadgeProps) {
   const config = getPriorityConfig(priority);
   return (
-    <Badge variant="outline" className={ColorUtils.getPriorityColor(priority)}>
+    <Badge variant="outline" className={cn(ColorUtils.getPriorityColor(priority), 'transition-all hover:scale-105')}>
       <Flag className="size-3" />
       {config.label}
     </Badge>
@@ -87,29 +92,31 @@ function TaskEditRow({
   mode = 'edit'
 }: TaskEditRowProps) {
   return (
-    <div className="flex w-full items-center gap-2">
+    <div className="flex w-full items-center gap-2 animate-in fade-in duration-200">
       <Input
         value={editingTitle}
         onChange={(e) => onTitleChange(e.target.value)}
         placeholder={mode === 'create' ? 'Add a new task...' : 'Task title'}
         onKeyDown={onKeyDown}
         autoFocus
-        className="flex-1"
+        className="flex-1 border-2 focus-visible:ring-2 focus-visible:ring-primary/50 transition-all"
       />
 
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-10 min-w-[80px]">
-            <Flag className={cn('size-4 mr-1', getPriorityConfig(editingPriority).color)} />
+          <Button variant="outline" size="sm" className="h-10 min-w-20 transition-all hover:border-primary/50 hover:shadow-sm">
+            <Flag
+              className={cn('size-4 mr-1 transition-transform group-hover:scale-110', getPriorityConfig(editingPriority).color)}
+            />
             {getPriorityConfig(editingPriority).label}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="center">
+        <DropdownMenuContent align="center" className="w-48">
           <DropdownMenuLabel>Priority</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuRadioGroup value={editingPriority} onValueChange={(value) => onPriorityChange(value as TaskPriority)}>
             {TASK_CONFIG.PRIORITY_OPTIONS.map((option) => (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
+              <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
                 <Flag className={cn('size-4 mr-2', option.color)} />
                 {option.label}
               </DropdownMenuRadioItem>
@@ -125,13 +132,19 @@ function TaskEditRow({
         size="icon"
         onClick={onSave}
         aria-label={mode === 'create' ? 'Add task' : 'Save task'}
-        className="size-10"
+        className="size-10 hover:bg-green-50 hover:text-green-600 transition-all"
       >
         {mode === 'create' ? <Plus className="size-5 text-primary" /> : <CheckCircle2 className="size-5 text-green-600" />}
       </Button>
 
-      <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel" className="size-10">
-        <Circle className="size-5 text-muted-foreground" />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onCancel}
+        aria-label="Cancel"
+        className="size-10 hover:bg-red-50 hover:text-red-600 transition-all"
+      >
+        <X className="size-5 text-muted-foreground" />
       </Button>
     </div>
   );
@@ -139,46 +152,90 @@ function TaskEditRow({
 
 interface TaskDisplayRowProps {
   task: TaskWithStats;
-  goalTitle: string | null;
+  selectedGoalId: string | null;
+  goal: GoalWithStats | null;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onPriorityChange: (priority: TaskPriority) => void;
 }
 
-function TaskDisplayRow({ task, goalTitle, onToggle, onEdit, onDelete, onPriorityChange }: TaskDisplayRowProps) {
+function TaskDisplayRow({ task, goal, onToggle, onEdit, selectedGoalId, onDelete, onPriorityChange }: TaskDisplayRowProps) {
+  const GoalIcon = UIUtils.getIconComponent(goal?.icon || '');
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <>
-      <Button onClick={onToggle} aria-label={task.done ? 'Mark as incomplete' : 'Mark as complete'} variant="ghost" size="icon">
-        {task.done ? <CheckCircle2 className="size-5 text-green-600" /> : <Circle className="size-5 text-muted-foreground" />}
+    <div
+      className="flex items-start gap-3 w-full"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Button
+        onClick={onToggle}
+        aria-label={task.done ? 'Mark as incomplete' : 'Mark as complete'}
+        variant="ghost"
+        size="icon"
+        className="shrink-0 hover:scale-110 transition-transform"
+      >
+        {task.done ? (
+          <CheckCircle2 className="size-5 text-green-600 animate-in zoom-in duration-200" />
+        ) : (
+          <Circle className="size-5 text-muted-foreground hover:text-green-600 transition-colors" />
+        )}
       </Button>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <div className={cn('text-base font-medium truncate', task.done && 'line-through text-muted-foreground')}>
-            {task.title}
-          </div>
+          {selectedGoalId ? (
+            <TooltipProvider delayDuration={5000}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      'text-base font-medium truncate transition-all cursor-help',
+                      task.done && 'line-through text-muted-foreground opacity-60'
+                    )}
+                  >
+                    {task.title}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{task.title}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <div className={cn('text-base font-medium truncate', task.done && 'line-through text-muted-foreground')}>
+              {task.title}
+            </div>
+          )}
           {task.priority && <PriorityBadge priority={task.priority} />}
         </div>
 
         <div className="flex flex-col gap-1">
-          {goalTitle && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Target className="size-4 shrink-0" />
-              <span className="truncate">{goalTitle}</span>
+          {goal && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground group/goal">
+              <GoalIcon
+                className="size-4 shrink-0 transition-transform group-hover/goal:scale-110"
+                style={{ color: goal.color }}
+              />
+              <span className="truncate">{goal.title}</span>
             </div>
           )}
-
           {task.dueDate && (
             <div
               className={cn(
-                'flex items-center gap-1 text-sm',
-                task.isOverdue ? 'text-red-600' : task.daysUntilDue === 0 ? 'text-orange-600' : 'text-muted-foreground'
+                'flex items-center gap-1.5 text-sm transition-colors',
+                task.isOverdue
+                  ? 'text-red-600 font-medium'
+                  : task.daysUntilDue === 0
+                  ? 'text-orange-600 font-medium'
+                  : 'text-muted-foreground'
               )}
             >
               <CalendarIcon className="size-4 shrink-0" />
               <span className="truncate">{DateUtils.formatDateForDisplay(task.dueDate, { format: 'relative' })}</span>
-              {task.isOverdue && <AlertTriangle className="size-4 text-red-500 shrink-0" />}
+              {task.isOverdue && <AlertTriangle className="size-4 text-red-500 shrink-0 animate-pulse" />}
             </div>
           )}
         </div>
@@ -186,13 +243,17 @@ function TaskDisplayRow({ task, goalTitle, onToggle, onEdit, onDelete, onPriorit
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="size-8" aria-label="Open task actions menu">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn('size-8 transition-all', isHovered ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
+            aria-label="Open task actions menu"
+          >
             <MoreVertical className="size-4" />
-            <span className="sr-only">Open task menu</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={onEdit}>
+        <DropdownMenuContent align="end" className="w-48" sideOffset={5}>
+          <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
             <Edit2 className="mr-2 size-4" />
             Edit Task
           </DropdownMenuItem>
@@ -205,7 +266,7 @@ function TaskDisplayRow({ task, goalTitle, onToggle, onEdit, onDelete, onPriorit
             onValueChange={(value) => onPriorityChange(value as TaskPriority)}
           >
             {TASK_CONFIG.PRIORITY_OPTIONS.map((option) => (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
+              <DropdownMenuRadioItem key={option.value} value={option.value} className="cursor-pointer">
                 <Flag className={cn('size-4 mr-2', option.color)} />
                 {option.label}
               </DropdownMenuRadioItem>
@@ -214,24 +275,26 @@ function TaskDisplayRow({ task, goalTitle, onToggle, onEdit, onDelete, onPriorit
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onClick={onDelete} variant="destructive">
+          <DropdownMenuItem onClick={onDelete} variant="destructive" className="cursor-pointer">
             <Trash2 className="mr-2 size-4" />
             Delete Task
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </>
+    </div>
   );
 }
 
 function EmptyTaskState() {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="rounded-full bg-primary/10 p-4 mb-4">
-        <ListTodo className="size-12 text-primary" />
+    <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-500">
+      <div className="rounded-full bg-linear-to-br from-primary/20 to-primary/5 p-6 mb-4 animate-in zoom-in duration-300">
+        <ListTodo className="size-16 text-primary" />
       </div>
-      <p className="text-base text-foreground font-semibold mb-1">No tasks yet</p>
-      <p className="text-sm text-muted-foreground">Click "Add Task" above to create your first task</p>
+      <p className="text-lg text-foreground font-semibold mb-2">No tasks yet</p>
+      <p className="text-sm text-muted-foreground max-w-sm">
+        Click "Add Task" above to create your first task and start getting things done
+      </p>
     </div>
   );
 }
@@ -289,11 +352,10 @@ function QuickAddTask({ onCreate, isExpanded, onToggle }: QuickAddTaskProps) {
 
     onCreate(trimmedTitle, dueDate?.toISOString(), priority);
 
-    // Reset form
     setTitle('');
     setDueDate(undefined);
     setPriority('medium');
-    onToggle(); // Collapse after creation
+    onToggle();
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -318,7 +380,11 @@ function QuickAddTask({ onCreate, isExpanded, onToggle }: QuickAddTaskProps) {
 
   if (!isExpanded) {
     return (
-      <Button onClick={onToggle} className="w-full justify-start gap-2 h-11 text-base" variant="outline">
+      <Button
+        onClick={onToggle}
+        className="w-full justify-start gap-2 h-12 text-base font-medium shadow-sm hover:shadow-md transition-all"
+        variant="outline"
+      >
         <Plus className="size-5" />
         Add Task
       </Button>
@@ -339,10 +405,13 @@ function QuickAddTask({ onCreate, isExpanded, onToggle }: QuickAddTaskProps) {
         onKeyDown={handleKeyDown}
         mode="create"
       />
-      <p className="text-xs text-muted-foreground mt-2 ml-1">
-        Press <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Enter</kbd> to add or{' '}
-        <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Esc</kbd> to cancel
-      </p>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 ml-1">
+        <Sparkles className="size-3" />
+        <span>
+          Press <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded border">Enter</kbd> to add or{' '}
+          <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded border">Esc</kbd> to cancel
+        </span>
+      </div>
     </div>
   );
 }
@@ -383,12 +452,11 @@ export function TaskPanel({
   const [editingDueDate, setEditingDueDate] = useState<Date | undefined>(undefined);
   const [editingPriority, setEditingPriority] = useState<TaskPriority>('medium');
   const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Internal state (fallback if not controlled)
   const [internalTaskFilter, setInternalTaskFilter] = useState<TaskFilter>('all');
   const [internalTimeFilter, setInternalTimeFilter] = useState<TimeFilter>('all');
 
-  // Use external state if provided, otherwise use internal state
   const taskFilter = externalTaskFilter !== undefined ? externalTaskFilter : internalTaskFilter;
   const timeFilter = externalTimeFilter !== undefined ? externalTimeFilter : internalTimeFilter;
 
@@ -478,13 +546,14 @@ export function TaskPanel({
 
   const displayTasks = getTasksByGoal?.(selectedGoalId) || tasks;
 
-  // Apply filters
   const filteredTasks = displayTasks.filter((task) => {
-    // Status filter
     if (taskFilter === 'active' && task.done) return false;
     if (taskFilter === 'completed' && !task.done) return false;
 
-    // Time filter
+    if (searchQuery.trim() && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
     return isTaskInTimeFilter(task, timeFilter);
   });
 
@@ -492,37 +561,44 @@ export function TaskPanel({
   const activeTasks = displayTasks.filter((t) => !t.done).length;
   const completedTasks = displayTasks.filter((t) => t.done).length;
 
-  // Time filter counts
   const todayTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'today')).length;
   const weekTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'week')).length;
   const overdueTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'overdue')).length;
   const noDateTasks = displayTasks.filter((t) => !t.dueDate).length;
 
+  const completionRate = displayTasks.length > 0 ? Math.round((completedTasks / displayTasks.length) * 100) : 0;
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-2xl">
-            <ListTodo className="size-6 text-primary" />
-            Tasks
-            {displayTasks.length > 0 && (
-              <span className="text-sm font-normal text-muted-foreground">
-                ({completedTasks}/{displayTasks.length})
-              </span>
-            )}
+    <Card className="shadow-lg border-primary/10">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between mb-4">
+          <CardTitle className="flex items-center gap-3 text-2xl">
+            <div className="rounded-lg bg-primary/10 p-2">
+              <ListTodo className="size-6 text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span>Tasks</span>
+              {displayTasks.length > 0 && (
+                <span className="text-xs font-normal text-muted-foreground mt-0.5">
+                  {completionRate}% complete · {activeTasks} active
+                </span>
+              )}
+            </div>
           </CardTitle>
 
           {showFilter && displayTasks.length > 0 && (
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 transition-all hover:shadow-sm">
                     <Clock className="size-4" />
-                    {timeFilter === 'all' && 'All Time'}
-                    {timeFilter === 'today' && 'Today'}
-                    {timeFilter === 'week' && 'This Week'}
-                    {timeFilter === 'overdue' && 'Overdue'}
-                    {timeFilter === 'no-date' && 'No Date'}
+                    <span className="hidden sm:inline">
+                      {timeFilter === 'all' && 'All Time'}
+                      {timeFilter === 'today' && 'Today'}
+                      {timeFilter === 'week' && 'This Week'}
+                      {timeFilter === 'overdue' && 'Overdue'}
+                      {timeFilter === 'no-date' && 'No Date'}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
@@ -558,11 +634,13 @@ export function TaskPanel({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 transition-all hover:shadow-sm">
                     <Filter className="size-4" />
-                    {taskFilter === 'all' && 'All'}
-                    {taskFilter === 'active' && 'Active'}
-                    {taskFilter === 'completed' && 'Completed'}
+                    <span className="hidden sm:inline">
+                      {taskFilter === 'all' && 'All'}
+                      {taskFilter === 'active' && 'Active'}
+                      {taskFilter === 'completed' && 'Completed'}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
@@ -590,6 +668,28 @@ export function TaskPanel({
             </div>
           )}
         </div>
+
+        {displayTasks.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tasks..."
+              className="pl-9 pr-9 h-10 transition-all focus-visible:ring-2"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 size-8 hover:bg-transparent"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="size-4 text-muted-foreground" />
+              </Button>
+            )}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -600,10 +700,9 @@ export function TaskPanel({
         />
 
         {displayTasks.length > 0 && (
-          <div className="flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
             {sortedTasks.map((task) => {
               const goalData = getGoalByTaskId ? getGoalByTaskId(task.id) : null;
-              const goalTitle = goalData?.title || null;
 
               return (
                 <div
@@ -630,7 +729,8 @@ export function TaskPanel({
                   ) : (
                     <TaskDisplayRow
                       task={task}
-                      goalTitle={goalTitle}
+                      goal={goalData}
+                      selectedGoalId={selectedGoalId}
                       onToggle={() => onToggleTask(task.id)}
                       onEdit={() => handleStartEdit(task)}
                       onDelete={() => onDeleteTask(task.id)}
