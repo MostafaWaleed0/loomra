@@ -142,7 +142,7 @@ export class GoalFactory {
 
     notes: (value: any): ValidationResult<string> => {
       try {
-        const sanitized = ValidationUtils.sanitizeString(value) || String(value || '').trim();
+        const sanitized = ValidationUtils.sanitizeNotes(value) || String(value || '').trim();
         const maxLength = SYSTEM_CONSTANTS.VALIDATION.MAX_NOTE_LENGTH;
         if (sanitized.length > maxLength) {
           return {
