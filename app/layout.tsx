@@ -6,8 +6,7 @@ import './globals.css';
 import { cn } from './lib/utils';
 
 export const metadata: Metadata = {
-  title: 'Loomra',
-  description: 'Reach It style goal, task, and habit tracker built with Next.js'
+  title: 'Loomra'
 };
 
 export default function RootLayout({
