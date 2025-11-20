@@ -85,7 +85,7 @@ export const SYSTEM_CONSTANTS = {
     MAX_PASSWORD_LENGTH: 50,
     MIN_NAME_LENGTH: 1,
     MAX_NAME_LENGTH: 50,
-    MAX_NOTE_LENGTH: 250,
+    MAX_NOTE_LENGTH: 1000,
     MAX_DESCRIPTION_LENGTH: 120,
     MIN_TARGET_AMOUNT: 1,
     MAX_TARGET_AMOUNT: 10000,
@@ -156,8 +156,6 @@ export const VALIDATION_MESSAGES = {
     SERVER_ERROR: 'Server error. Please try again later'
   }
 } as const;
-
-
 
 export const WEEK_DAYS = [
   { key: 'sunday', label: 'Sun', full: 'Sunday', index: 0 },
