@@ -109,10 +109,13 @@ fn create_tables(conn: &Connection) -> SqlResult<()> {
             title TEXT NOT NULL,
             done INTEGER NOT NULL DEFAULT 0,
             goal_id TEXT,
+            parent_task_id TEXT,
             due_date TEXT,
             priority TEXT NOT NULL DEFAULT 'medium',
             created_at TEXT NOT NULL,
-            FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE,
+            FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE CASCADE
         )",
         [],
     )?;
@@ -184,6 +187,8 @@ fn create_indexes(conn: &Connection) -> SqlResult<()> {
         "CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)",
         "CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks(done)",
         "CREATE INDEX IF NOT EXISTS idx_tasks_goal_done ON tasks(goal_id, done, due_date)",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_parent_task_id ON tasks(parent_task_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_parent_done ON tasks(parent_task_id, done)",
 
         // Goal indexes
         "CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status)",

@@ -259,9 +259,9 @@ export interface GoalFilters {
 export interface Task {
   id: string;
   title: string;
-  description: string;
   done: boolean;
   goalId: string | null;
+  parentTaskId?: string | null;
   dueDate?: string;
   priority: TaskPriority;
   createdAt: string;
@@ -272,20 +272,20 @@ export interface TaskWithStats extends Task {
   isOverdue: boolean;
   daysUntilDue: number | null;
   daysSinceCreated: number;
+  subtasks?: TaskWithStats[];
+  subtaskCount?: number;
+  completedSubtaskCount?: number;
 }
 
-// Task Creation
-export interface TaskFormData {
-  id: string;
-  title: string;
-  description: string;
-  done: boolean;
-  goalId: string | null;
-  dueDate?: string;
-  priority: TaskPriority;
-  createdAt: string;
-  updatedAt: string;
+export interface TaskFormData extends Omit<Task, 'createdAt' | 'updatedAt'> {
+  parentTaskId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+export type TaskTimeFilter = 'all' | 'no-date' | 'today' | 'week' | 'overdue';
+
+export type TaskFilter = 'all' | 'active' | 'completed';
 
 // Task Updates
 export type TaskUpdates = Partial<Omit<Task, 'id' | 'createdAt'>>;
@@ -552,7 +552,20 @@ export interface UseTasksReturn {
   stats: TaskStats;
   isLoading: boolean;
   refreshTasks: () => Promise<void>;
-  handleCreateTask: (title: string, goalId?: string | null, dueDate?: string) => Promise<Task | undefined>;
+  handleCreateTask: (
+    title: string,
+    goalId?: string | null,
+    dueDate?: string,
+    priority?: TaskPriority,
+    parentTaskId?: string | null
+  ) => Promise<Task | undefined>;
+  handleCreateSubtask: (
+    title: string,
+    parentTaskId: string,
+    goalId?: string | null,
+    dueDate?: string,
+    priority?: TaskPriority
+  ) => Promise<Task | undefined>;
   handleEditTask: (taskId: string, updates: TaskUpdates) => Promise<void>;
   handleToggleTask: (taskId: string) => Promise<void>;
   handleDeleteTask: (taskId: string) => Promise<void>;
@@ -562,6 +575,8 @@ export interface UseTasksReturn {
   getTasksByGoal: (goalId: string) => TaskWithStats[];
   getTaskById: (taskId: string) => TaskWithStats | null;
   getUpcomingTasks: (days?: number) => TaskWithStats[];
+  getSubtasks: (parentTaskId: string) => TaskWithStats[];
+  getAllSubtasksFlat: (parentTaskId: string) => TaskWithStats[];
 }
 // ============================================================================
 // FREQUENCY CONFIG TYPES

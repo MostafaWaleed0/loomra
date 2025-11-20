@@ -74,6 +74,7 @@ interface TasksAPI {
   getTaskById: (taskId: string) => Promise<Task | null>;
   getTasksByGoalId: (goalId: string) => Promise<Task[]>;
   getTasksByStatus: (done: boolean) => Promise<Task[]>;
+  getSubtasks: (parentTaskId: string) => Promise<Task[]>;
   createTask: (task: Task) => Promise<Task>;
   updateTask: (task: Task) => Promise<Task>;
   deleteTask: (taskId: string) => Promise<boolean>;
@@ -181,6 +182,7 @@ const tauriAPI: TauriAPI = {
     getTaskById: (id) => invoke('get_task_by_id', { id }),
     getTasksByGoalId: (goalId) => invoke('get_tasks_by_goal_id', { goalId }),
     getTasksByStatus: (done) => invoke('get_tasks_by_status', { done }),
+    getSubtasks: (parentTaskId) => invoke('get_subtasks', { parentTaskId }),
     toggleTaskStatus: (id) => invoke('toggle_task_status', { id })
   },
 

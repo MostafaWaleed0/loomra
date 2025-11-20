@@ -1,5 +1,6 @@
 import { GoalFactory } from '@/lib/goal/goal-factory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { TaskUtils } from '../tasks/task-utils';
 import { AppSettings, commands } from '../tauri-api';
 import type {
   DeleteStrategy,
@@ -23,9 +24,6 @@ export function useGoals(
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // ==========================================================================
-  // DATA LOADING - Only on mount
-  // ==========================================================================
   const refreshGoals = useCallback(async () => {
     try {
       const goalsData = await commands.goals.getAllGoals();
@@ -45,33 +43,29 @@ export function useGoals(
 
   useEffect(() => {
     refreshGoals();
-  }, []);
+  }, [refreshGoals]);
 
-  // ==========================================================================
-  // PROGRESS CALCULATION
-  // ==========================================================================
   const calculateGoalProgress = useCallback(
     (goalId: string) => {
-      const goalTasks = tasks.filter((t) => t.goalId === goalId);
-      if (goalTasks.length === 0) return 0;
-      return GoalFactory.calculateProgress(goalTasks.filter((t) => t.done).length, goalTasks.length);
+      const actionableTasks = TaskUtils.getActionableTasks(tasks).filter((t) => t.goalId === goalId);
+      if (actionableTasks.length === 0) return 0;
+
+      const completed = actionableTasks.filter((t) => t.done).length;
+      return GoalFactory.calculateProgress(completed, actionableTasks.length);
     },
     [tasks]
   );
 
-  // ==========================================================================
-  // COMPUTED VALUES - Must be before CRUD operations
-  // ==========================================================================
   const goalsWithStats: GoalWithStats[] = useMemo(() => {
     return goals.map((goal) => {
-      const goalTasks = tasks.filter((t) => t.goalId === goal.id);
-      const completedTasks = goalTasks.filter((t) => t.done).length;
-      const progress = GoalFactory.calculateProgress(completedTasks, goalTasks.length);
+      const actionableTasks = TaskUtils.getActionableTasks(tasks).filter((t) => t.goalId === goal.id);
+      const completedTasks = actionableTasks.filter((t) => t.done).length;
+      const progress = GoalFactory.calculateProgress(completedTasks, actionableTasks.length);
 
       return {
         ...goal,
         progress,
-        taskCount: goalTasks.length,
+        taskCount: actionableTasks.length,
         completedTaskCount: completedTasks,
         isCompleted: progress >= 100,
         isOverdue: GoalFactory.isOverdue(goal),
@@ -86,16 +80,9 @@ export function useGoals(
   }, [selectedGoalId, goalsWithStats]);
 
   const setSelectedGoal = useCallback((goal: Goal | GoalWithStats | null) => {
-    if (!goal) {
-      setSelectedGoalId(null);
-    } else {
-      setSelectedGoalId(goal.id);
-    }
+    setSelectedGoalId(goal?.id || null);
   }, []);
 
-  // ==========================================================================
-  // CRUD - Optimistic updates (no refresh)
-  // ==========================================================================
   const handleCreateGoal = useCallback(
     async (payload: Partial<Goal> = { title: 'New Goal' }) => {
       if (!commands?.goals) {
@@ -106,14 +93,7 @@ export function useGoals(
       setValidationErrors({});
 
       try {
-        const newGoal = GoalFactory.create(
-          {
-            ...payload,
-            title: payload.title || 'New Goal'
-          },
-          null,
-          settings
-        );
+        const newGoal = GoalFactory.create({ ...payload, title: payload.title || 'New Goal' }, null, settings);
 
         if (!newGoal) throw new Error('Failed to create goal');
 
@@ -147,16 +127,13 @@ export function useGoals(
         const updatedGoal = GoalFactory.update(existingGoal, updates, settings);
         if (!updatedGoal) throw new Error('Failed to update goal');
 
-        // Optimistic update
         setGoals((prev) => prev.map((g) => (g.id === goalId ? updatedGoal : g)));
-
         await commands.goals.updateGoal(updatedGoal);
 
         return true;
       } catch (error) {
         console.error('Error updating goal:', error);
         setValidationErrors({ general: 'Failed to update goal' });
-
         await refreshGoals();
         return false;
       }
@@ -173,11 +150,7 @@ export function useGoals(
 
         if (success) {
           setGoals((prev) => prev.filter((g) => g.id !== goalId));
-
-          if (selectedGoalId === goalId) {
-            setSelectedGoalId(null);
-          }
-
+          if (selectedGoalId === goalId) setSelectedGoalId(null);
           setValidationErrors({});
 
           if (deleteStrategy !== 'unlink') {
@@ -196,18 +169,12 @@ export function useGoals(
     [selectedGoalId, refreshTasks, refreshHabits]
   );
 
-  // ==========================================================================
-  // QUICK ACTIONS
-  // ==========================================================================
   const markAsCompleted = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'completed' }), [handleUpdateGoal]);
 
   const markAsActive = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'active' }), [handleUpdateGoal]);
 
   const pauseGoal = useCallback((goalId: string) => handleUpdateGoal(goalId, { status: 'paused' }), [handleUpdateGoal]);
 
-  // ==========================================================================
-  // STATS
-  // ==========================================================================
   const stats: GoalStats = useMemo(() => {
     const totalGoals = goals.length;
     const completedGoals = goalsWithStats.filter((g) => g.isCompleted).length;
@@ -236,9 +203,6 @@ export function useGoals(
     };
   }, [goals.length, goalsWithStats]);
 
-  // ==========================================================================
-  // QUERIES
-  // ==========================================================================
   const getFilteredGoals = useCallback(
     (filters: GoalFilters = {}) => {
       return goalsWithStats.filter((goal) => {
@@ -284,9 +248,6 @@ export function useGoals(
 
   const getGoalById = useCallback((goalId: string) => goalsWithStats.find((g) => g.id === goalId) || null, [goalsWithStats]);
 
-  // ==========================================================================
-  // RETURN
-  // ==========================================================================
   return {
     goals: goalsWithStats,
     selectedGoal,

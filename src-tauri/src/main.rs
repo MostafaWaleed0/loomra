@@ -44,6 +44,7 @@ fn main() {
             commands::tasks::get_tasks_by_goal_id,
             commands::tasks::get_tasks_by_status,
             commands::tasks::toggle_task_status,
+            commands::tasks::get_subtasks,
             // Habit commands
             commands::habits::create_habit,
             commands::habits::update_habit,

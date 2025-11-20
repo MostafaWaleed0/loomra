@@ -12,26 +12,28 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ColorUtils, DateUtils, TASK_CONFIG, UIUtils } from '@/lib/core';
+import { TaskUtils } from '@/lib/tasks/task-utils';
 import type { GoalWithStats, TaskPriority, TaskUpdates, TaskWithStats, UseGoalsReturn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   CalendarIcon,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Circle,
   Clock,
   Edit2,
   Filter,
   Flag,
   ListTodo,
+  ListTree,
   MoreVertical,
   Plus,
-  Target,
-  Trash2,
   Search,
-  X,
   Sparkles,
-  TrendingUp
+  Trash2,
+  X
 } from 'lucide-react';
 import { useState } from 'react';
 import { DatePicker } from '../form/date-picker';
@@ -76,7 +78,7 @@ interface TaskEditRowProps {
   onSave: () => void;
   onCancel: () => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  mode?: 'create' | 'edit';
+  mode?: 'create' | 'edit' | 'subtask';
 }
 
 function TaskEditRow({
@@ -91,12 +93,14 @@ function TaskEditRow({
   onKeyDown,
   mode = 'edit'
 }: TaskEditRowProps) {
+  const placeholder = mode === 'subtask' ? 'Add a subtask...' : mode === 'create' ? 'Add a new task...' : 'Task title';
+
   return (
     <div className="flex w-full items-center gap-2 animate-in fade-in duration-200">
       <Input
         value={editingTitle}
         onChange={(e) => onTitleChange(e.target.value)}
-        placeholder={mode === 'create' ? 'Add a new task...' : 'Task title'}
+        placeholder={placeholder}
         onKeyDown={onKeyDown}
         autoFocus
         className="flex-1 border-2 focus-visible:ring-2 focus-visible:ring-primary/50 transition-all"
@@ -131,10 +135,10 @@ function TaskEditRow({
         variant="ghost"
         size="icon"
         onClick={onSave}
-        aria-label={mode === 'create' ? 'Add task' : 'Save task'}
+        aria-label={mode === 'subtask' ? 'Add subtask' : mode === 'create' ? 'Add task' : 'Save task'}
         className="size-10 hover:bg-green-50 hover:text-green-600 transition-all"
       >
-        {mode === 'create' ? <Plus className="size-5 text-primary" /> : <CheckCircle2 className="size-5 text-green-600" />}
+        {mode !== 'edit' ? <Plus className="size-5 text-primary" /> : <CheckCircle2 className="size-5 text-green-600" />}
       </Button>
 
       <Button
@@ -158,9 +162,27 @@ interface TaskDisplayRowProps {
   onEdit: () => void;
   onDelete: () => void;
   onPriorityChange: (priority: TaskPriority) => void;
+  onAddSubtask: () => void;
+  onToggleExpand: () => void;
+  isExpanded: boolean;
+  depth?: number;
+  hasSubtasks?: boolean;
 }
 
-function TaskDisplayRow({ task, goal, onToggle, onEdit, selectedGoalId, onDelete, onPriorityChange }: TaskDisplayRowProps) {
+function TaskDisplayRow({
+  task,
+  goal,
+  onToggle,
+  onEdit,
+  selectedGoalId,
+  onDelete,
+  onPriorityChange,
+  onAddSubtask,
+  onToggleExpand,
+  isExpanded,
+  depth = 0,
+  hasSubtasks = false
+}: TaskDisplayRowProps) {
   const GoalIcon = UIUtils.getIconComponent(goal?.icon || '');
   const [isHovered, setIsHovered] = useState(false);
 
@@ -169,20 +191,69 @@ function TaskDisplayRow({ task, goal, onToggle, onEdit, selectedGoalId, onDelete
       className="flex items-start gap-3 w-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{ paddingLeft: `${depth * 24}px` }}
     >
-      <Button
-        onClick={onToggle}
-        aria-label={task.done ? 'Mark as incomplete' : 'Mark as complete'}
-        variant="ghost"
-        size="icon"
-        className="shrink-0 hover:scale-110 transition-transform"
-      >
-        {task.done ? (
-          <CheckCircle2 className="size-5 text-green-600 animate-in zoom-in duration-200" />
-        ) : (
-          <Circle className="size-5 text-muted-foreground hover:text-green-600 transition-colors" />
-        )}
-      </Button>
+      {hasSubtasks && (
+        <Button onClick={onToggleExpand} variant="ghost" size="icon" className="shrink-0 size-5 p-0 hover:bg-transparent">
+          {isExpanded ? (
+            <ChevronDown className="size-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="size-4 text-muted-foreground" />
+          )}
+        </Button>
+      )}
+
+      {!hasSubtasks ? (
+        <Button
+          onClick={onToggle}
+          aria-label={task.done ? 'Mark as incomplete' : 'Mark as complete'}
+          variant="ghost"
+          size="icon"
+          className={cn('shrink-0 hover:scale-110 transition-transform', !hasSubtasks && depth > 0 && 'ml-5')}
+        >
+          {task.done ? (
+            <CheckCircle2 className="size-5 text-green-600 animate-in zoom-in duration-200" />
+          ) : (
+            <Circle className="size-5 text-muted-foreground hover:text-green-600 transition-colors" />
+          )}
+        </Button>
+      ) : (
+        <div className="shrink-0 size-10 flex items-center justify-center">
+          <div className="relative size-8">
+            <svg className="size-8 transform -rotate-90">
+              <circle
+                cx="16"
+                cy="16"
+                r="14"
+                stroke="currentColor"
+                strokeWidth="3"
+                fill="none"
+                className="text-muted-foreground/20"
+              />
+              <circle
+                cx="16"
+                cy="16"
+                r="14"
+                stroke="currentColor"
+                strokeWidth="3"
+                fill="none"
+                strokeDasharray={`${2 * Math.PI * 14}`}
+                strokeDashoffset={`${2 * Math.PI * 14 * (1 - (task.completedSubtaskCount || 0) / (task.subtaskCount || 1))}`}
+                className={cn(
+                  'transition-all duration-500',
+                  task.completedSubtaskCount === task.subtaskCount ? 'text-green-600' : 'text-primary'
+                )}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[10px] font-semibold">
+                {task.completedSubtaskCount}/{task.subtaskCount}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
@@ -258,6 +329,11 @@ function TaskDisplayRow({ task, goal, onToggle, onEdit, selectedGoalId, onDelete
             Edit Task
           </DropdownMenuItem>
 
+          <DropdownMenuItem onClick={onAddSubtask} className="cursor-pointer">
+            <ListTree className="mr-2 size-4" />
+            Add Subtask
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
 
           <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Change Priority</DropdownMenuLabel>
@@ -297,42 +373,6 @@ function EmptyTaskState() {
       </p>
     </div>
   );
-}
-
-function sortTasks(tasks: TaskWithStats[]): TaskWithStats[] {
-  return [...tasks].sort((a, b) => {
-    if (a.done !== b.done) {
-      return a.done ? 1 : -1;
-    }
-
-    if (!a.done) {
-      if (a.isOverdue !== b.isOverdue) {
-        return a.isOverdue ? -1 : 1;
-      }
-
-      if (a.dueDate && b.dueDate) {
-        const comparison = DateUtils.calculateDaysBetween(a.dueDate, b.dueDate);
-        if (comparison !== 0) return comparison;
-      }
-
-      if (a.dueDate && !b.dueDate) return -1;
-      if (!a.dueDate && b.dueDate) return 1;
-
-      const priorityOrder: Record<TaskPriority, number> = { high: 3, medium: 2, low: 1 };
-      const priorityDiff = priorityOrder[b.priority || 'medium'] - priorityOrder[a.priority || 'medium'];
-      if (priorityDiff !== 0) return priorityDiff;
-    }
-
-    if (a.done && a.updatedAt && b.updatedAt) {
-      return DateUtils.calculateDaysBetween(b.updatedAt, a.updatedAt);
-    }
-
-    if (a.createdAt && b.createdAt) {
-      return DateUtils.calculateDaysBetween(b.createdAt, a.createdAt);
-    }
-
-    return 0;
-  });
 }
 
 interface QuickAddTaskProps {
@@ -419,7 +459,7 @@ function QuickAddTask({ onCreate, isExpanded, onToggle }: QuickAddTaskProps) {
 interface TaskPanelProps {
   tasks: TaskWithStats[];
   selectedGoalId: string | null;
-  onCreateTask: (title: string, goalId?: string, dueDate?: string, priority?: TaskPriority) => void;
+  onCreateTask: (title: string, goalId?: string, dueDate?: string, priority?: TaskPriority, parentTaskId?: string) => void;
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (taskId: string, updates: TaskUpdates) => void;
@@ -453,6 +493,11 @@ export function TaskPanel({
   const [editingPriority, setEditingPriority] = useState<TaskPriority>('medium');
   const [isQuickAddExpanded, setIsQuickAddExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [addingSubtaskTo, setAddingSubtaskTo] = useState<string | null>(null);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [subtaskPriority, setSubtaskPriority] = useState<TaskPriority>('medium');
+  const [subtaskDueDate, setSubtaskDueDate] = useState<Date | undefined>(undefined);
 
   const [internalTaskFilter, setInternalTaskFilter] = useState<TaskFilter>('all');
   const [internalTimeFilter, setInternalTimeFilter] = useState<TimeFilter>('all');
@@ -461,19 +506,13 @@ export function TaskPanel({
   const timeFilter = externalTimeFilter !== undefined ? externalTimeFilter : internalTimeFilter;
 
   const handleTaskFilterChange = (filter: TaskFilter) => {
-    if (onTaskFilterChange) {
-      onTaskFilterChange(filter);
-    } else {
-      setInternalTaskFilter(filter);
-    }
+    if (onTaskFilterChange) onTaskFilterChange(filter);
+    else setInternalTaskFilter(filter);
   };
 
   const handleTimeFilterChange = (filter: TimeFilter) => {
-    if (onTimeFilterChange) {
-      onTimeFilterChange(filter);
-    } else {
-      setInternalTimeFilter(filter);
-    }
+    if (onTimeFilterChange) onTimeFilterChange(filter);
+    else setInternalTimeFilter(filter);
   };
 
   function handleStartEdit(task: TaskWithStats): void {
@@ -522,51 +561,166 @@ export function TaskPanel({
     onCreateTask(title, selectedGoalId ?? undefined, dueDate, priority);
   }
 
-  function isTaskInTimeFilter(task: TaskWithStats, filter: TimeFilter): boolean {
-    if (filter === 'all') return true;
-    if (filter === 'no-date') return !task.dueDate;
-    if (!task.dueDate) return false;
+  function handleToggleExpand(taskId: string): void {
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
 
-    const todayStr = DateUtils.getCurrentDateString();
-    const taskDateStr = DateUtils.formatDate(new Date(task.dueDate));
-
-    switch (filter) {
-      case 'today':
-        return taskDateStr === todayStr;
-      case 'week': {
-        const weekEnd = DateUtils.addDays(todayStr, 7);
-        return !DateUtils.isDateBefore(taskDateStr, todayStr) && DateUtils.isDateBefore(taskDateStr, weekEnd);
+  function findTaskById(tasks: TaskWithStats[], taskId: string): TaskWithStats | null {
+    for (const task of tasks) {
+      if (task.id === taskId) return task;
+      if (task.subtasks && task.subtasks.length > 0) {
+        const found = findTaskById(task.subtasks, taskId);
+        if (found) return found;
       }
-      case 'overdue':
-        return DateUtils.isDateBefore(taskDateStr, todayStr) && !task.done;
-      default:
-        return true;
+    }
+    return null;
+  }
+
+  function handleStartAddSubtask(taskId: string): void {
+    const parentTask = findTaskById(displayTasks, taskId);
+
+    if (parentTask) {
+      setSubtaskPriority(parentTask.priority || 'medium');
+      setSubtaskDueDate(parentTask.dueDate ? new Date(parentTask.dueDate) : undefined);
+    }
+
+    setAddingSubtaskTo(taskId);
+    setExpandedTasks((prev) => new Set(prev).add(taskId));
+  }
+
+  function handleCancelSubtask(): void {
+    setSubtaskTitle('');
+    setSubtaskPriority('medium');
+    setSubtaskDueDate(undefined);
+    setAddingSubtaskTo(null);
+  }
+
+  function handleSaveSubtask(): void {
+    const trimmedTitle = subtaskTitle.trim();
+    if (!trimmedTitle || !addingSubtaskTo) return;
+
+    const parentTask = findTaskById(displayTasks, addingSubtaskTo);
+    const goalId = parentTask?.goalId ?? undefined;
+    const dueDate = subtaskDueDate?.toISOString();
+    const priority = subtaskPriority;
+
+    onCreateTask(trimmedTitle, goalId, dueDate, priority, addingSubtaskTo);
+
+    setSubtaskTitle('');
+    setSubtaskPriority('medium');
+    setSubtaskDueDate(undefined);
+    setAddingSubtaskTo(null);
+  }
+
+  function handleSubtaskKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveSubtask();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelSubtask();
     }
   }
 
+  function renderTask(task: TaskWithStats, depth = 0): React.ReactNode {
+    const isEditing = editingTaskId === task.id;
+    const isExpanded = expandedTasks.has(task.id);
+    const isAddingSubtask = addingSubtaskTo === task.id;
+    const goalData = getGoalByTaskId ? getGoalByTaskId(task.id) : null;
+    const hasSubtasks = (task.subtaskCount ?? 0) > 0;
+
+    return (
+      <div key={task.id}>
+        <div
+          className={cn(
+            'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
+            task.done ? 'bg-muted/20 opacity-75' : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
+          )}
+        >
+          {isEditing ? (
+            <TaskEditRow
+              editingTitle={editingTitle}
+              editingPriority={editingPriority}
+              editingDueDate={editingDueDate}
+              onTitleChange={setEditingTitle}
+              onPriorityChange={setEditingPriority}
+              onDueDateChange={setEditingDueDate}
+              onSave={() => handleSaveEdit(task.id)}
+              onCancel={handleCancelEdit}
+              onKeyDown={(e) => handleKeyDown(e, task.id)}
+            />
+          ) : (
+            <TaskDisplayRow
+              task={task}
+              goal={goalData}
+              selectedGoalId={selectedGoalId}
+              onToggle={() => onToggleTask(task.id)}
+              onEdit={() => handleStartEdit(task)}
+              onDelete={() => onDeleteTask(task.id)}
+              onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
+              onAddSubtask={() => handleStartAddSubtask(task.id)}
+              onToggleExpand={() => handleToggleExpand(task.id)}
+              isExpanded={isExpanded}
+              depth={depth}
+              hasSubtasks={hasSubtasks}
+            />
+          )}
+        </div>
+
+        {isExpanded && task.subtasks && task.subtasks.length > 0 && (
+          <div className="ml-6 mt-2 space-y-2">{task.subtasks.map((subtask) => renderTask(subtask, depth + 1))}</div>
+        )}
+
+        {isAddingSubtask && (
+          <div className="ml-6 mt-2 rounded-lg border-2 border-primary/20 bg-primary/5 p-3">
+            <TaskEditRow
+              editingTitle={subtaskTitle}
+              editingPriority={subtaskPriority}
+              editingDueDate={subtaskDueDate}
+              onTitleChange={setSubtaskTitle}
+              onPriorityChange={setSubtaskPriority}
+              onDueDateChange={setSubtaskDueDate}
+              onSave={handleSaveSubtask}
+              onCancel={handleCancelSubtask}
+              onKeyDown={handleSubtaskKeyDown}
+              mode="subtask"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 ml-1">
+              <Sparkles className="size-3 shrink-0" />
+              <span>
+                Inheriting from parent:{' '}
+                <span className="font-medium text-foreground">{getPriorityConfig(task.priority || 'medium').label}</span> priority
+                {task.dueDate && (
+                  <>
+                    {', due '}
+                    <span className="font-medium text-foreground">
+                      {DateUtils.formatDateForDisplay(task.dueDate, { format: 'relative' })}
+                    </span>
+                  </>
+                )}
+                {task.goalId && goalData && (
+                  <>
+                    {', linked to '}
+                    <span className="font-medium text-foreground">{goalData.title}</span>
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const displayTasks = getTasksByGoal?.(selectedGoalId) || tasks;
-
-  const filteredTasks = displayTasks.filter((task) => {
-    if (taskFilter === 'active' && task.done) return false;
-    if (taskFilter === 'completed' && !task.done) return false;
-
-    if (searchQuery.trim() && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
-    }
-
-    return isTaskInTimeFilter(task, timeFilter);
-  });
-
-  const sortedTasks = sortTasks(filteredTasks);
-  const activeTasks = displayTasks.filter((t) => !t.done).length;
-  const completedTasks = displayTasks.filter((t) => t.done).length;
-
-  const todayTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'today')).length;
-  const weekTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'week')).length;
-  const overdueTasks = displayTasks.filter((t) => isTaskInTimeFilter(t, 'overdue')).length;
-  const noDateTasks = displayTasks.filter((t) => !t.dueDate).length;
-
-  const completionRate = displayTasks.length > 0 ? Math.round((completedTasks / displayTasks.length) * 100) : 0;
+  const filteredTasks = TaskUtils.filterTasksHierarchical(displayTasks, searchQuery, taskFilter, timeFilter);
+  const sortedTasks = TaskUtils.sortTasks(filteredTasks);
+  const stats = TaskUtils.calculateTaskStats(displayTasks);
 
   return (
     <Card className="shadow-lg border-primary/10">
@@ -578,15 +732,15 @@ export function TaskPanel({
             </div>
             <div className="flex flex-col">
               <span>Tasks</span>
-              {displayTasks.length > 0 && (
+              {stats.totalTasks > 0 && (
                 <span className="text-xs font-normal text-muted-foreground mt-0.5">
-                  {completionRate}% complete · {activeTasks} active
+                  {stats.completionRate}% complete · {stats.activeTasks} active
                 </span>
               )}
             </div>
           </CardTitle>
 
-          {showFilter && displayTasks.length > 0 && (
+          {showFilter && stats.totalTasks > 0 && (
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -610,23 +764,23 @@ export function TaskPanel({
                   >
                     <DropdownMenuRadioItem value="all">
                       All Time
-                      <span className="ml-auto text-xs text-muted-foreground">{displayTasks.length}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.totalTasks}</span>
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="today">
                       Today
-                      <span className="ml-auto text-xs text-muted-foreground">{todayTasks}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.todayTasks}</span>
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="week">
                       This Week
-                      <span className="ml-auto text-xs text-muted-foreground">{weekTasks}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.weekTasks}</span>
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="overdue">
                       Overdue
-                      <span className="ml-auto text-xs text-muted-foreground">{overdueTasks}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.overdueTasks}</span>
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="no-date">
                       No Date
-                      <span className="ml-auto text-xs text-muted-foreground">{noDateTasks}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.noDateTasks}</span>
                     </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
@@ -652,15 +806,15 @@ export function TaskPanel({
                   >
                     <DropdownMenuRadioItem value="all">
                       All Tasks
-                      <span className="ml-auto text-xs text-muted-foreground">{displayTasks.length}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.totalTasks}</span>
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="active">
                       Active
-                      <span className="ml-auto text-xs text-muted-foreground">{activeTasks}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.activeTasks}</span>
                     </DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="completed">
                       Completed
-                      <span className="ml-auto text-xs text-muted-foreground">{completedTasks}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{stats.completedTasks}</span>
                     </DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
@@ -669,7 +823,7 @@ export function TaskPanel({
           )}
         </div>
 
-        {displayTasks.length > 0 && (
+        {stats.totalTasks > 0 && (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <Input
@@ -699,51 +853,13 @@ export function TaskPanel({
           onToggle={() => setIsQuickAddExpanded(!isQuickAddExpanded)}
         />
 
-        {displayTasks.length > 0 && (
+        {stats.totalTasks > 0 && (
           <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
-            {sortedTasks.map((task) => {
-              const goalData = getGoalByTaskId ? getGoalByTaskId(task.id) : null;
-
-              return (
-                <div
-                  key={task.id}
-                  className={cn(
-                    'group flex items-start gap-3 rounded-xl border px-4 py-3 transition-all',
-                    task.done
-                      ? 'bg-muted/20 opacity-75'
-                      : 'bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm'
-                  )}
-                >
-                  {editingTaskId === task.id ? (
-                    <TaskEditRow
-                      editingTitle={editingTitle}
-                      editingPriority={editingPriority}
-                      editingDueDate={editingDueDate}
-                      onTitleChange={setEditingTitle}
-                      onPriorityChange={setEditingPriority}
-                      onDueDateChange={setEditingDueDate}
-                      onSave={() => handleSaveEdit(task.id)}
-                      onCancel={handleCancelEdit}
-                      onKeyDown={(e) => handleKeyDown(e, task.id)}
-                    />
-                  ) : (
-                    <TaskDisplayRow
-                      task={task}
-                      goal={goalData}
-                      selectedGoalId={selectedGoalId}
-                      onToggle={() => onToggleTask(task.id)}
-                      onEdit={() => handleStartEdit(task)}
-                      onDelete={() => onDeleteTask(task.id)}
-                      onPriorityChange={(priority) => handlePriorityChange(task.id, priority)}
-                    />
-                  )}
-                </div>
-              );
-            })}
+            {sortedTasks.map((task) => renderTask(task))}
           </div>
         )}
 
-        {filteredTasks.length === 0 && displayTasks.length > 0 && (
+        {filteredTasks.length === 0 && stats.totalTasks > 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Filter className="size-12 text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground font-medium">
@@ -760,7 +876,7 @@ export function TaskPanel({
           </div>
         )}
 
-        {displayTasks.length === 0 && <EmptyTaskState />}
+        {stats.totalTasks === 0 && <EmptyTaskState />}
       </CardContent>
     </Card>
   );

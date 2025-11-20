@@ -2,7 +2,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useGoalForm } from '@/lib/hooks/use-goal-form';
 import { AppSettings } from '@/lib/tauri-api';
-import type { DeleteStrategy, Goal, GoalStats, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn } from '@/lib/types';
+import type {
+  DeleteStrategy,
+  Goal,
+  GoalStats,
+  GoalWithStats,
+  Habit,
+  TaskWithStats,
+  UseGoalsReturn,
+  UseTasksReturn
+} from '@/lib/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Award, CheckCircle2, Plus, Target, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -94,10 +103,10 @@ interface GoalDetailViewProps {
   onDelete: (goalId: string, strategy?: DeleteStrategy) => Promise<boolean>;
   onStatusChange: (goalId: string, action: 'completed' | 'active' | 'paused') => void;
   tasks: TaskWithStats[];
-  onCreateTask: (title: string, goalId?: string, dueDate?: string) => void;
-  onToggleTask: (taskId: string) => Promise<void>;
-  onEditTask: (taskId: string, updates: Partial<TaskWithStats>) => Promise<void>;
-  onDeleteTask: (taskId: string) => Promise<void>;
+  onCreateTask: UseTasksReturn['handleCreateTask'];
+  onToggleTask: UseTasksReturn['handleToggleTask'];
+  onEditTask: UseTasksReturn['handleEditTask'];
+  onDeleteTask: UseTasksReturn['handleDeleteTask'];
   getHabitsByGoalId: (goalId: string) => Habit[];
   isEditorOpen: boolean;
   setIsEditorOpen: (open: boolean) => void;
@@ -131,7 +140,25 @@ function GoalDetailView({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { formData, validationErrors, updateField, resetForm, hasErrors } = useGoalForm(goal);
 
-  const goalTasks = tasks.filter((t) => t.goalId === goal.id);
+  const goalTasks = useMemo(() => {
+    const actionable: TaskWithStats[] = [];
+
+    function collectActionable(taskList: TaskWithStats[]) {
+      taskList.forEach((task) => {
+        if (task.goalId === goal.id) {
+          if (task.subtasks && task.subtasks.length > 0) {
+            collectActionable(task.subtasks);
+          } else {
+            actionable.push(task);
+          }
+        }
+      });
+    }
+
+    collectActionable(tasks);
+    return actionable;
+  }, [tasks, goal.id]);
+
   const incompleteTasks = goalTasks.filter((t) => !t.done);
 
   useEffect(() => {
@@ -250,10 +277,10 @@ function GoalDetailView({
 --------------------------------------------------------------------------- */
 export interface GoalViewProps extends UseGoalsReturn {
   tasks: TaskWithStats[];
-  onCreateTask: (title: string, goalId?: string, dueDate?: string) => void;
-  onToggleTask: (taskId: string) => Promise<void>;
-  onEditTask: (taskId: string, updates: Partial<TaskWithStats>) => Promise<void>;
-  onDeleteTask: (taskId: string) => Promise<void>;
+  onCreateTask: UseTasksReturn['handleCreateTask'];
+  onToggleTask: UseTasksReturn['handleToggleTask'];
+  onEditTask: UseTasksReturn['handleEditTask'];
+  onDeleteTask: UseTasksReturn['handleDeleteTask'];
   getHabitsByGoalId: (goalId: string) => Habit[];
   settings: AppSettings['goals'];
 }

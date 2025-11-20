@@ -9,22 +9,25 @@ pub struct Task {
     pub title: String,
     pub done: bool,
     pub goal_id: Option<String>,
+    pub parent_task_id: Option<String>,
     pub due_date: Option<String>,
     pub priority: String,
     pub created_at: String,
+    pub updated_at: String,
 }
 
 impl Task {
-    /// Map a database row to a Task struct
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(Self {
             id: row.get(0)?,
             title: row.get(1)?,
             done: row.get::<_, i32>(2)? != 0,
             goal_id: row.get(3)?,
-            due_date: row.get(4)?,
-            priority: row.get(5)?,
-            created_at: row.get(6)?,
+            parent_task_id: row.get(4)?,
+            due_date: row.get(5)?,
+            priority: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
         })
     }
 }
@@ -38,16 +41,18 @@ pub async fn create_task(
         .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     db.execute(
-        "INSERT INTO tasks (id, title, done, goal_id, due_date, priority, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO tasks (id, title, done, goal_id, parent_task_id, due_date, priority, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             task.id,
             task.title,
             task.done as i32,
             task.goal_id,
+            task.parent_task_id,
             task.due_date,
             task.priority,
             task.created_at,
+            task.updated_at,
         ],
     )
     .map_err(|e| format!("Failed to create task: {}", e))?;
@@ -65,15 +70,17 @@ pub async fn update_task(
 
     let rows = db.execute(
         "UPDATE tasks SET
-            title = ?1, done = ?2, goal_id = ?3,
-            due_date = ?4, priority = ?5
-         WHERE id = ?6",
+            title = ?1, done = ?2, goal_id = ?3, parent_task_id = ?4,
+            due_date = ?5, priority = ?6, updated_at = ?7
+         WHERE id = ?8",
         params![
             task.title,
             task.done as i32,
             task.goal_id,
+            task.parent_task_id,
             task.due_date,
             task.priority,
+            task.updated_at,
             task.id,
         ],
     )
@@ -184,6 +191,27 @@ pub async fn get_tasks_by_status(
 }
 
 #[tauri::command]
+pub async fn get_subtasks(
+    state: tauri::State<'_, AppState>,
+    parent_task_id: String,
+) -> Result<Vec<Task>, String> {
+    let db = state.db.get()
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+    let mut stmt = db
+        .prepare("SELECT * FROM tasks WHERE parent_task_id = ?1 ORDER BY created_at ASC")
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+
+    let tasks = stmt
+        .query_map(params![parent_task_id], Task::from_row)
+        .map_err(|e| format!("Failed to query subtasks: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to collect subtasks: {}", e))?;
+
+    Ok(tasks)
+}
+
+#[tauri::command]
 pub async fn toggle_task_status(
     state: tauri::State<'_, AppState>,
     id: String,
@@ -192,7 +220,7 @@ pub async fn toggle_task_status(
         .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let rows = db.execute(
-        "UPDATE tasks SET done = NOT done WHERE id = ?1",
+        "UPDATE tasks SET done = NOT done, updated_at = datetime('now') WHERE id = ?1",
         params![id],
     )
     .map_err(|e| format!("Failed to toggle task status: {}", e))?;
@@ -201,7 +229,6 @@ pub async fn toggle_task_status(
         return Err(format!("Task with id '{}' not found", id));
     }
 
-    // Get the new status
     let new_status = db
         .query_row(
             "SELECT done FROM tasks WHERE id = ?1",

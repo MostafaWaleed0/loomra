@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { generateId } from '../core';
+import { TaskUtils } from '../tasks/task-utils';
+import { commands } from '../tauri-api';
 import type {
   Task,
-  TaskWithStats,
-  TaskFormData,
-  TaskUpdates,
+  TaskFilter,
   TaskFilters,
+  TaskFormData,
+  TaskPriority,
   TaskStats,
-  UseTasksReturn,
-  TaskPriority
+  TaskTimeFilter,
+  TaskUpdates,
+  TaskWithStats,
+  UseTasksReturn
 } from '../types';
-import { commands } from '../tauri-api';
 
 export function useTasks(): UseTasksReturn {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ==========================================================================
-  // DATA LOADING - Only on mount
-  // ==========================================================================
   const refreshTasks = useCallback(async (): Promise<void> => {
     try {
       const data = await commands.tasks.getAllTasks();
@@ -32,21 +32,76 @@ export function useTasks(): UseTasksReturn {
 
   useEffect(() => {
     refreshTasks();
-  }, []); // Empty deps - only load once
+  }, [refreshTasks]);
 
-  // ==========================================================================
-  // CREATE - Optimistic update
-  // ==========================================================================
+  const tasksWithStats = useMemo((): TaskWithStats[] => {
+    const taskMap = new Map<string, TaskWithStats>();
+    const now = new Date();
+
+    tasks.forEach((task) => {
+      const createdDate = new Date(task.createdAt);
+      const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+      const isOverdue = Boolean(dueDate && dueDate < now && !task.done);
+      const daysSinceCreated = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+      taskMap.set(task.id, {
+        ...task,
+        isOverdue,
+        daysUntilDue,
+        daysSinceCreated,
+        subtasks: [],
+        subtaskCount: 0,
+        completedSubtaskCount: 0
+      });
+    });
+
+    const rootTasks: TaskWithStats[] = [];
+    taskMap.forEach((task) => {
+      if (task.parentTaskId) {
+        const parent = taskMap.get(task.parentTaskId);
+        if (parent) parent.subtasks!.push(task);
+      } else {
+        rootTasks.push(task);
+      }
+    });
+
+    function calculateNestedCounts(task: TaskWithStats): void {
+      if (task.subtasks && task.subtasks.length > 0) {
+        task.subtasks.forEach(calculateNestedCounts);
+
+        task.subtaskCount = task.subtasks.reduce((sum, sub) => {
+          return sum + (sub.subtaskCount || 1);
+        }, 0);
+
+        task.completedSubtaskCount = task.subtasks.reduce((sum, sub) => {
+          return sum + (sub.completedSubtaskCount || (sub.done ? 1 : 0));
+        }, 0);
+
+        task.done = task.completedSubtaskCount === task.subtaskCount && task.subtaskCount > 0;
+      }
+    }
+
+    rootTasks.forEach(calculateNestedCounts);
+    return rootTasks;
+  }, [tasks]);
+
   const handleCreateTask = useCallback(
-    async (title: string, goalId?: string | null, dueDate?: string, priority?: TaskPriority): Promise<Task | undefined> => {
+    async (
+      title: string,
+      goalId?: string | null,
+      dueDate?: string,
+      priority?: TaskPriority,
+      parentTaskId?: string | null
+    ): Promise<Task | undefined> => {
       if (!title?.trim()) return;
 
       const taskData: TaskFormData = {
         id: generateId('task'),
         title: title.trim(),
-        description: '',
         done: false,
         goalId: goalId ?? null,
+        parentTaskId: parentTaskId ?? null,
         dueDate: dueDate ?? undefined,
         priority: priority ?? 'medium',
         createdAt: new Date().toISOString(),
@@ -54,7 +109,7 @@ export function useTasks(): UseTasksReturn {
       };
 
       try {
-        const newTask = await commands.tasks.createTask(taskData);
+        const newTask = await commands.tasks.createTask(taskData as Task);
         setTasks((prev) => [newTask, ...prev]);
         return newTask;
       } catch (error) {
@@ -64,9 +119,26 @@ export function useTasks(): UseTasksReturn {
     []
   );
 
-  // ==========================================================================
-  // UPDATE - Optimistic updates
-  // ==========================================================================
+  const handleCreateSubtask = useCallback(
+    async (
+      title: string,
+      parentTaskId: string,
+      goalId?: string | null,
+      dueDate?: string,
+      priority?: TaskPriority
+    ): Promise<Task | undefined> => {
+      const parentTask = tasks.find((t) => t.id === parentTaskId);
+      if (!parentTask) return;
+
+      const inheritedGoalId = goalId !== undefined ? goalId : parentTask.goalId;
+      const inheritedDueDate = dueDate !== undefined ? dueDate : parentTask.dueDate;
+      const inheritedPriority = priority !== undefined ? priority : parentTask.priority;
+
+      return handleCreateTask(title, inheritedGoalId, inheritedDueDate, inheritedPriority, parentTaskId);
+    },
+    [handleCreateTask, tasks]
+  );
+
   const handleEditTask = useCallback(
     async (taskId: string, updates: TaskUpdates): Promise<void> => {
       const task = tasks.find((t) => t.id === taskId);
@@ -95,6 +167,9 @@ export function useTasks(): UseTasksReturn {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      const hasSubtasks = tasks.some((t) => t.parentTaskId === taskId);
+      if (hasSubtasks) return;
+
       const updatedTask: Task = {
         ...task,
         done: !task.done,
@@ -105,6 +180,18 @@ export function useTasks(): UseTasksReturn {
 
       try {
         await commands.tasks.updateTask(updatedTask);
+
+        if (task.parentTaskId) {
+          const siblings = tasks.filter((t) => t.parentTaskId === task.parentTaskId);
+          const allSiblingsDone = siblings.every((t) => (t.id === taskId ? !task.done : t.done));
+          const parent = tasks.find((t) => t.id === task.parentTaskId);
+
+          if (parent && parent.done !== allSiblingsDone) {
+            const updatedParent = { ...parent, done: allSiblingsDone, updatedAt: new Date().toISOString() };
+            setTasks((prev) => prev.map((t) => (t.id === parent.id ? updatedParent : t)));
+            await commands.tasks.updateTask(updatedParent);
+          }
+        }
       } catch (error) {
         console.error('Failed to toggle task:', error);
         setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)));
@@ -144,96 +231,85 @@ export function useTasks(): UseTasksReturn {
     [handleEditTask]
   );
 
-  // ==========================================================================
-  // COMPUTED TASKS WITH STATS
-  // ==========================================================================
-  const tasksWithStats = useMemo((): TaskWithStats[] => {
-    return tasks.map((task) => {
-      const now = new Date();
-      const createdDate = new Date(task.createdAt);
-      const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+  const getSubtasks = useCallback(
+    (parentTaskId: string): TaskWithStats[] => {
+      const parent = tasksWithStats.find((t) => t.id === parentTaskId);
+      return parent?.subtasks || [];
+    },
+    [tasksWithStats]
+  );
 
-      const isOverdue = Boolean(dueDate && dueDate < now && !task.done);
-      const daysSinceCreated = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-      const daysUntilDue = dueDate ? Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const getAllSubtasksFlat = useCallback(
+    (parentTaskId: string): TaskWithStats[] => {
+      const result: TaskWithStats[] = [];
 
-      return { ...task, isOverdue, daysUntilDue, daysSinceCreated };
-    });
-  }, [tasks]);
+      function collectSubtasks(task: TaskWithStats) {
+        if (task.subtasks) {
+          task.subtasks.forEach((sub) => {
+            result.push(sub);
+            collectSubtasks(sub);
+          });
+        }
+      }
 
-  // ==========================================================================
-  // STATISTICS
-  // ==========================================================================
-  const stats = useMemo((): TaskStats => {
-    const completed = tasksWithStats.filter((t) => t.done).length;
-    const overdue = tasksWithStats.filter((t) => t.isOverdue).length;
+      const parent = tasksWithStats.find((t) => t.id === parentTaskId);
+      if (parent) collectSubtasks(parent);
 
-    const dueToday = tasksWithStats.filter((t) => {
-      if (!t.dueDate) return false;
-      const today = new Date().toDateString();
-      return new Date(t.dueDate).toDateString() === today && !t.done;
-    }).length;
+      return result;
+    },
+    [tasksWithStats]
+  );
 
-    const priorityCounts = tasksWithStats.reduce(
-      (acc, task) => {
-        acc[task.priority] = (acc[task.priority] || 0) + 1;
-        return acc;
-      },
-      { low: 0, medium: 0, high: 0 } as Record<TaskPriority, number>
-    );
-
-    const tasksWithGoals = tasksWithStats.filter((t) => t.goalId !== null).length;
-    const tasksWithoutGoals = tasksWithStats.length - tasksWithGoals;
-
-    return {
-      totalTasks: tasks.length,
-      completedTasks: completed,
-      pendingTasks: tasks.length - completed,
-      overdueTasks: overdue,
-      tasksWithGoals,
-      tasksWithoutGoals,
-      tasksByPriority: priorityCounts,
-      completionRate: tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0
-    };
-  }, [tasksWithStats, tasks.length]);
-
-  // ==========================================================================
-  // QUERIES
-  // ==========================================================================
   const getFilteredTasks = useCallback(
     (filters: TaskFilters = {}): TaskWithStats[] => {
-      return tasksWithStats.filter((task) => {
-        if (filters.goalId !== undefined && task.goalId !== filters.goalId) return false;
-        if (filters.done !== undefined && task.done !== filters.done) return false;
-        if (filters.priority && task.priority !== filters.priority) return false;
-        if (filters.overdue && !task.isOverdue) return false;
-        if (filters.hasGoal !== undefined && (task.goalId !== null) !== filters.hasGoal) return false;
-        if (filters.hasDueDate !== undefined && (task.dueDate !== undefined) !== filters.hasDueDate) return false;
-        if (filters.search) {
-          const searchTerm = filters.search.toLowerCase();
-          return task.title.toLowerCase().includes(searchTerm) || task.description.toLowerCase().includes(searchTerm);
-        }
-        if (filters.today) {
-          const today = new Date().toDateString();
-          const taskDue = task.dueDate ? new Date(task.dueDate).toDateString() : null;
-          if (taskDue !== today) return false;
-        }
-        return true;
-      });
+      const searchQuery = filters.search ?? '';
+
+      const statusFilter: TaskFilter = filters.done === undefined ? 'all' : filters.done ? 'completed' : 'active';
+
+      let timeFilter: TaskTimeFilter = 'all';
+      if (filters.today) timeFilter = 'today';
+      if (filters.overdue) timeFilter = 'overdue';
+
+      return TaskUtils.filterTasksHierarchical(tasksWithStats, searchQuery, statusFilter, timeFilter);
     },
     [tasksWithStats]
   );
 
   const getTasksByGoal = useCallback(
     (goalId: string): TaskWithStats[] => {
-      return tasksWithStats.filter((t) => t.goalId === goalId).sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
+      const results: TaskWithStats[] = [];
+
+      function collectActionable(taskList: TaskWithStats[]) {
+        taskList.forEach((task) => {
+          if (task.goalId === goalId) {
+            if (task.subtasks && task.subtasks.length > 0) {
+              collectActionable(task.subtasks);
+            } else {
+              results.push(task);
+            }
+          }
+        });
+      }
+
+      collectActionable(tasksWithStats);
+      return results.sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
     },
     [tasksWithStats]
   );
 
   const getTaskById = useCallback(
     (taskId: string): TaskWithStats | null => {
-      return tasksWithStats.find((t) => t.id === taskId) || null;
+      function findTask(tasks: TaskWithStats[]): TaskWithStats | null {
+        for (const task of tasks) {
+          if (task.id === taskId) return task;
+          if (task.subtasks && task.subtasks.length > 0) {
+            const found = findTask(task.subtasks);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+      return findTask(tasksWithStats);
     },
     [tasksWithStats]
   );
@@ -242,27 +318,66 @@ export function useTasks(): UseTasksReturn {
     (days = 7): TaskWithStats[] => {
       const now = new Date();
       const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      const upcoming: TaskWithStats[] = [];
 
-      const upcoming = tasksWithStats.filter((task) => {
-        if (!task.dueDate || task.done) return false;
-        const dueDate = new Date(task.dueDate);
-        return dueDate >= now && dueDate <= futureDate;
-      });
+      function collectUpcoming(taskList: TaskWithStats[]) {
+        taskList.forEach((task) => {
+          if (task.subtasks && task.subtasks.length > 0) {
+            collectUpcoming(task.subtasks);
+          } else if (task.dueDate && !task.done) {
+            const dueDate = new Date(task.dueDate);
+            if (dueDate >= now && dueDate <= futureDate) {
+              upcoming.push(task);
+            }
+          }
+        });
+      }
 
+      collectUpcoming(tasksWithStats);
       return upcoming.sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
     },
     [tasksWithStats]
   );
 
-  // ==========================================================================
-  // RETURN API
-  // ==========================================================================
+  const stats = useMemo((): TaskStats => {
+    const actionableTasks = TaskUtils.getActionableTasks(tasksWithStats);
+    const completed = actionableTasks.filter((t) => t.done).length;
+    const overdue = actionableTasks.filter((t) => t.isOverdue).length;
+    const dueToday = actionableTasks.filter((t) => {
+      if (!t.dueDate) return false;
+      const today = new Date().toDateString();
+      return new Date(t.dueDate).toDateString() === today && !t.done;
+    }).length;
+
+    const priorityCounts = actionableTasks.reduce(
+      (acc, task) => {
+        acc[task.priority] = (acc[task.priority] || 0) + 1;
+        return acc;
+      },
+      { low: 0, medium: 0, high: 0 } as Record<TaskPriority, number>
+    );
+
+    const tasksWithGoals = actionableTasks.filter((t) => t.goalId !== null).length;
+
+    return {
+      totalTasks: actionableTasks.length,
+      completedTasks: completed,
+      pendingTasks: actionableTasks.length - completed,
+      overdueTasks: overdue,
+      tasksWithGoals,
+      tasksWithoutGoals: actionableTasks.length - tasksWithGoals,
+      tasksByPriority: priorityCounts,
+      completionRate: actionableTasks.length > 0 ? Math.round((completed / actionableTasks.length) * 100) : 0
+    };
+  }, [tasksWithStats]);
+
   return {
     tasks: tasksWithStats,
     stats,
     isLoading,
     refreshTasks,
     handleCreateTask,
+    handleCreateSubtask,
     handleEditTask,
     handleToggleTask,
     handleDeleteTask,
@@ -271,6 +386,8 @@ export function useTasks(): UseTasksReturn {
     getFilteredTasks,
     getTasksByGoal,
     getTaskById,
-    getUpcomingTasks
+    getUpcomingTasks,
+    getSubtasks,
+    getAllSubtasksFlat
   };
 }
