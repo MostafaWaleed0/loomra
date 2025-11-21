@@ -13,8 +13,8 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Row } from '@tanstack/react-table';
-import { Calendar, GripVertical, MoreVertical, Edit2, Trash2, Lock } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import { Calendar, Edit2, GripVertical, Lock, MoreVertical, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,21 +30,17 @@ import {
 import { ColorUtils, DateUtils, FormatUtils } from '@/lib/core';
 import { HABIT_CONFIG } from '@/lib/core/constants';
 import { HabitFrequencyManager, HabitStatusManager } from '@/lib/habit';
-import { DateString, HabitCompletion, HabitWithMetadata } from '@/lib/types';
+import { useLocalState } from '@/lib/hooks/use-local-state';
+import { DateString, Goal, HabitCompletion, HabitWithMetadata } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { CompletionControl } from '../form/completion-control';
 import { HabitIcon } from '../habit-icon';
 import { HabitActionsMenuContent } from './habit-actions-menu-content';
-import { useLocalState } from '@/lib/hooks/use-local-state';
+import { HabitDeleteDialog } from './habit-delete-dialog';
 
 // ============================================================================
 // TYPES
 // ============================================================================
-interface Goal {
-  id: string;
-  name?: string;
-  title?: string;
-}
 
 interface HabitListProps {
   habits: HabitWithMetadata[];
@@ -131,16 +127,22 @@ const HabitRowContent = React.memo(
     dragHandleProps,
     showAll
   }: any) => {
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
     const dayStatus = HabitStatusManager.getDayStatus(habit, completions, selectedDate);
     const statusInfo = HabitStatusManager.getStatusMessage(dayStatus, habit);
     const frequencyDescription = HabitFrequencyManager.describe(habit.frequency);
     const canModifyCompletion = !DateUtils.isFutureDate(selectedDate) && dayStatus !== HABIT_CONFIG.STATUS.LOCKED;
 
+    function handleDeleteConfirm(habitId: string) {
+      onDeleteHabit(habitId);
+    }
+
     return (
       <>
         {showAll ? <DragHandle {...dragHandleProps} /> : null}
         <div className="flex items-center gap-3 flex-1">
-          <HabitIcon habit={habit} size="size-10" className="flex-shrink-0" />
+          <HabitIcon habit={habit} size="size-10" className="shrink-0" />
           <div className="flex-1">
             <Button
               variant="link"
@@ -160,8 +162,8 @@ const HabitRowContent = React.memo(
                 <Badge variant="secondary" className="text-xs">
                   {FormatUtils.formatList(
                     goals
-                      .filter((goal: Goal) => goal && (goal.title || goal.name) && habit.linkedGoals.includes(goal.id))
-                      .map((goal: Goal) => goal.title || goal.name || ''),
+                      .filter((goal: Goal) => goal && goal.title && habit.linkedGoals.includes(goal.id))
+                      .map((goal: Goal) => goal.title || ''),
                     { maxItems: 2 }
                   )}
                 </Badge>
@@ -170,8 +172,6 @@ const HabitRowContent = React.memo(
             <div className="text-xs text-muted-foreground mt-1 truncate">{frequencyDescription}</div>
           </div>
         </div>
-
-        {/* Status / Completion / Actions */}
 
         <div className="flex justify-end items-center gap-3 sm:gap-4">
           {showAll ? null : (
@@ -228,13 +228,19 @@ const HabitRowContent = React.memo(
                 Edit Habit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onDeleteHabit(habit.id)} className="text-destructive">
+              <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="text-destructive">
                 <Trash2 className="mr-1 size-4" />
                 Delete Habit
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        <HabitDeleteDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          habit={habit}
+          onDelete={handleDeleteConfirm}
+        />
       </>
     );
   }
