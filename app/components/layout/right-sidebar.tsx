@@ -10,6 +10,7 @@ import { SYSTEM_CONSTANTS, UI_CONFIG } from '@/lib/core/constants';
 import { HabitFrequencyManager } from '@/lib/habit';
 import { useHabitCalendar } from '@/lib/hooks/use-habit-calendar';
 import { CompletionRecord, DateString, Habit, HabitCompletion, HabitStats, UseHabitsReturn } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { AlertCircle, Brain, CalendarIcon, CheckCircle, Circle, Heart, Loader2Icon, Target, X, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CompletionControl } from '../form/completion-control';
@@ -66,16 +67,15 @@ const HabitView = ({
 }: any) => {
   const {
     editFormData,
-    currentMonth,
+    visibleMonth,
     statusInfo,
     canEditDay,
     calendarModifiers,
     calendarModifierClasses,
     handleDaySelect,
-    handleGoToToday,
     updateFormField,
-    handleSaveCompletion,
-    setCurrentMonth
+    setVisibleMonth,
+    handleSaveCompletion
   } = useHabitCalendar(habit || ({} as Habit), completions, selectedDate, onDateChange, onSetHabitCompletion);
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -112,13 +112,13 @@ const HabitView = ({
         {habit && (
           <div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="capitalize">
+              <Badge variant="outline" className="text-xs">
                 {habit.category}
               </Badge>
-              <Badge variant="secondary" className="capitalize">
-                {habit.priority}
+              <Badge variant="outline" className="text-xs">
+                Started {DateUtils.formatDateForDisplay(habit.startDate)}
               </Badge>
-              <Badge variant="secondary">Started {DateUtils.formatDateForDisplay(habit.startDate)}</Badge>
+              <Badge className={cn(ColorUtils.getPriorityColor(habit.priority), 'text-xs')}>{habit.priority}</Badge>
             </div>
           </div>
         )}
@@ -129,20 +129,28 @@ const HabitView = ({
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-center mb-4">
-                  <Button size="sm" variant="outline" onClick={handleGoToToday}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const today = new Date();
+                      onDateSelect(today);
+                      onDateChange(DateUtils.formatDate(today));
+                    }}
+                  >
                     Today
                   </Button>
                 </div>
                 <Calendar
                   mode="single"
-                  month={currentMonth}
-                  onMonthChange={setCurrentMonth}
                   modifiers={calendarModifiers}
                   modifiersClassNames={calendarModifierClasses}
                   onDayClick={handleDaySelect}
                   showOutsideDays={false}
                   selected={selectedDateObj}
                   onSelect={onDateSelect}
+                  month={visibleMonth}
+                  onMonthChange={setVisibleMonth}
                   className="w-full"
                 />
               </CardContent>
@@ -273,7 +281,7 @@ const HabitView = ({
                             </div>
                           </div>
                           <div
-                            className="size-3 rounded-full border-2 flex-shrink-0"
+                            className="size-3 rounded-full border-2 shrink-0"
                             style={{
                               borderColor: h.color,
                               backgroundColor: h.completedOnDate ? h.color : 'transparent'
