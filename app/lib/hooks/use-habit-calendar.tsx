@@ -121,19 +121,23 @@ export function useHabitCalendar(
     additionalData?: Partial<CompletionRecord>
   ) => void
 ): any {
-  const [currentMonth, setCurrentMonth] = useState<DateString>(() => {
-    try {
-      return DateUtils.getCurrentDateString();
-    } catch {
-      return new Date().toISOString().split('T')[0];
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() =>
+    selectedDate ? DateUtils.createDateFromString(selectedDate) : new Date()
+  );
+
+  useEffect(() => {
+    if (selectedDate) {
+      const newDate = DateUtils.createDateFromString(selectedDate);
+      setVisibleMonth(newDate);
     }
-  });
+  }, [selectedDate]);
 
   // ---- Computed Values ----
   const dayStatus = useMemo<HabitStatus>(
     () => HabitStatusManager.getDayStatus(habit, completions, selectedDate),
     [habit, completions, selectedDate]
   );
+
   const statusInfo = useMemo<StatusMessage>(
     () =>
       HabitStatusManager.getStatusMessage(dayStatus, habit) || {
@@ -143,6 +147,7 @@ export function useHabitCalendar(
       },
     [dayStatus, habit]
   );
+
   const canEditDay = useMemo<boolean>(() => EDITABLE_STATUSES.includes(dayStatus as any), [dayStatus]);
 
   // ---- Internal Hooks ----
@@ -157,9 +162,9 @@ export function useHabitCalendar(
           console.error('Invalid date provided to handleDaySelect:', date);
           return;
         }
-
         const dateString = DateUtils.formatDate(date);
         onDateChange(dateString);
+        setVisibleMonth(date);
         setEditFormData(initializeFormData(dateString));
       } catch (error) {
         console.error('Failed to handle day selection:', error);
@@ -168,21 +173,11 @@ export function useHabitCalendar(
     [onDateChange, initializeFormData, setEditFormData]
   );
 
-  const handleGoToToday = useCallback(() => {
-    try {
-      const today = DateUtils.getCurrentDateString();
-      setCurrentMonth(today);
-    } catch {
-      setCurrentMonth(new Date().toISOString().split('T')[0]);
-    }
-  }, []);
-
   const updateFormField = useMemo(() => HabitFormManager.createFieldUpdater(setEditFormData), [setEditFormData]);
 
   const handleSaveCompletion = useCallback(() => {
     try {
       if (!canEditDay || !onSetHabitCompletion) return;
-
       const completionData: Partial<CompletionRecord> = {
         actualAmount: editFormData.actualAmount,
         note: editFormData.note,
@@ -190,7 +185,6 @@ export function useHabitCalendar(
         difficulty: editFormData.difficulty,
         skipped: editFormData.skipped
       };
-
       onSetHabitCompletion(habit.id, selectedDate, editFormData.completed, completionData);
     } catch (error) {
       console.error('Failed to save completion:', error);
@@ -199,15 +193,14 @@ export function useHabitCalendar(
 
   return {
     editFormData,
-    currentMonth,
+    visibleMonth,
     statusInfo,
     canEditDay,
     calendarModifiers,
     calendarModifierClasses,
     handleDaySelect,
-    handleGoToToday,
     updateFormField,
-    handleSaveCompletion,
-    setCurrentMonth
+    setVisibleMonth,
+    handleSaveCompletion
   };
 }
