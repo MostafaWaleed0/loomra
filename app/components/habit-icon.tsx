@@ -1,9 +1,9 @@
 import { UIUtils } from '@/lib/core';
-import type { Habit } from '@/lib/types';
+import type { Habit, HabitFormData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface HabitIconProps extends React.HTMLAttributes<HTMLDivElement> {
-  habit: Habit;
+  habit: Habit | HabitFormData;
   size?: string;
   className?: string;
 }
