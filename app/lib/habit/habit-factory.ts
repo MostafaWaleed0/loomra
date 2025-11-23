@@ -69,22 +69,26 @@ export class HabitFactory {
     },
 
     targetAmount: (value: any): ValidationResult<number> => {
-      try {
-        const stringValue = typeof value === 'number' ? value.toString() : value;
-        const result = ValidationUtils.validateNumberInput(
-          stringValue,
-          SYSTEM_CONSTANTS.VALIDATION.MIN_TARGET_AMOUNT,
-          SYSTEM_CONSTANTS.VALIDATION.MAX_TARGET_AMOUNT,
-          HABIT_CONFIG.DEFAULTS.TARGET_AMOUNT
-        );
-        return { value: result, isValid: true };
-      } catch {
+      const min = SYSTEM_CONSTANTS.VALIDATION.MIN_TARGET_AMOUNT;
+      const max = SYSTEM_CONSTANTS.VALIDATION.MAX_TARGET_AMOUNT;
+      const defaultValue = HABIT_CONFIG.DEFAULTS.TARGET_AMOUNT;
+
+      const stringValue = typeof value === 'number' ? value.toString() : value;
+      const parsed = parseInt(stringValue);
+
+      const isInvalid = isNaN(parsed);
+
+      const result = ValidationUtils.validateNumberInput(stringValue, min, max, defaultValue);
+
+      if (isInvalid) {
         return {
-          value: HABIT_CONFIG.DEFAULTS.TARGET_AMOUNT,
+          value: defaultValue,
           isValid: false,
-          error: `Target amount must be between ${SYSTEM_CONSTANTS.VALIDATION.MIN_TARGET_AMOUNT} and ${SYSTEM_CONSTANTS.VALIDATION.MAX_TARGET_AMOUNT}`
+          error: `Target amount must be between ${min} and ${max}`
         };
       }
+
+      return { value: result, isValid: true };
     },
 
     category: (value: any): ValidationResult<HabitCategory> => {
@@ -212,16 +216,24 @@ export class HabitFactory {
     },
 
     frequency: (value: any): ValidationResult<HabitFrequency> => {
+      const defaultFrequency = HabitFrequencyManager.createDefaultFrequency();
+
       try {
-        if (value && typeof value === 'object' && value.type && value.value !== undefined) {
-          const validationResult = HabitFactory.validateFrequencyObject(value);
-          if (validationResult.isValid) {
-            return validationResult;
-          }
+        if (!value || typeof value !== 'object') {
+          return { value: defaultFrequency, isValid: false };
         }
 
-        const type: HabitFrequencyType = value?.type || HABIT_CONFIG.FREQUENCIES.DAILY;
-        const freqValue = value?.value;
+        if (!value.type || value.value === undefined) {
+          return { value: defaultFrequency, isValid: false };
+        }
+
+        const fullValidation = HabitFactory.validateFrequencyObject(value);
+        if (fullValidation.isValid) {
+          return fullValidation;
+        }
+
+        const type: HabitFrequencyType = value.type;
+        const freqValue = value.value;
 
         switch (type) {
           case HABIT_CONFIG.FREQUENCIES.DAILY: {
@@ -229,36 +241,46 @@ export class HabitFactory {
               Array.isArray(freqValue) && freqValue.length > 0
                 ? freqValue
                 : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
             return { value: HabitFrequencyManager.buildFromConfig(type, { selectedDays }), isValid: true };
           }
 
           case HABIT_CONFIG.FREQUENCIES.INTERVAL: {
             const intervalDays =
               typeof freqValue?.interval === 'number' ? freqValue.interval : typeof freqValue === 'number' ? freqValue : 1;
-            const frequency = HabitFrequencyManager.buildFromConfig(type, { intervalDays });
-            return { value: frequency, isValid: true };
+
+            return {
+              value: HabitFrequencyManager.buildFromConfig(type, { intervalDays }),
+              isValid: true
+            };
           }
 
           case HABIT_CONFIG.FREQUENCIES.X_TIMES_PER_PERIOD: {
             const repetitionsPerPeriod = freqValue?.repetitionsPerPeriod || 1;
             const period = freqValue?.period || 'week';
-            const frequency = HabitFrequencyManager.buildFromConfig(type, { repetitionsPerPeriod, period });
-            return { value: frequency, isValid: true };
+
+            return {
+              value: HabitFrequencyManager.buildFromConfig(type, { repetitionsPerPeriod, period }),
+              isValid: true
+            };
           }
 
           case HABIT_CONFIG.FREQUENCIES.SPECIFIC_DATES: {
             const specificDates = Array.isArray(freqValue)
               ? freqValue.filter((date: any) => typeof date === 'number' && date >= 1 && date <= 31)
               : [1];
-            const frequency = HabitFrequencyManager.buildFromConfig(type, { specificDates });
-            return { value: frequency, isValid: true };
+
+            return {
+              value: HabitFrequencyManager.buildFromConfig(type, { specificDates }),
+              isValid: true
+            };
           }
 
           default:
-            return { value: HabitFrequencyManager.createDefaultFrequency(), isValid: false };
+            return { value: defaultFrequency, isValid: false };
         }
       } catch {
-        return { value: HabitFrequencyManager.createDefaultFrequency(), isValid: false };
+        return { value: defaultFrequency, isValid: false };
       }
     }
   };

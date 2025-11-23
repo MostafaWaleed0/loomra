@@ -3,7 +3,7 @@ import { UI_CONFIG } from './constants';
 export class ValidationUtils {
   static sanitizeString(str: string): string {
     if (typeof str !== 'string') return '';
-    return str.replace(/\s+/g, ' ');
+    return str.trim().replace(/\s+/g, ' ');
   }
 
   static sanitizeNotes(str: string): string {
