@@ -8,7 +8,18 @@ export class ValidationUtils {
 
   static sanitizeNotes(str: string): string {
     if (typeof str !== 'string') return '';
-    return str.trim().replaceAll('<[^>]*>', '').replaceAll('\\p{C}', '');
+
+    return str
+      .trim()
+      .replace(/<[^>]*>/g, '')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+      .replace(/[\u2028\u2029]/g, '')
+      .replace(/[^\S\r\n]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .join('\n')
+      .trim();
   }
 
   static validateArray<T = unknown>(arr: unknown): T[] {

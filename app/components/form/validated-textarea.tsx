@@ -45,7 +45,7 @@ export const ValidatedTextarea: React.FC<ValidatedTextareaProps> = ({
         aria-required={required}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
-        className={cn(error && 'border-destructive', 'h-30 whitespace-pre-wrap break-words resize-y')}
+        className={cn(error && 'border-destructive', 'min-h-64 whitespace-pre-wrap wrap-break-word resize-y')}
       />
       {maxLength && (
         <div className="flex justify-between items-center">

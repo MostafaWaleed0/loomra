@@ -64,7 +64,9 @@ export function GoalNotesCard({ notes, onSave, validationError }: GoalNotesCardP
             error={validationError}
           />
         ) : (
-          <div className="whitespace-pre-wrap min-h-[200px]">{notes || 'No notes added yet.'}</div>
+          <div className="whitespace-pre-wrap wrap-break-word min-h-[200px] max-h-[600px] overflow-y-auto p-4 leading-relaxed">
+            {notes || 'No notes added yet.'}
+          </div>
         )}
       </CardContent>
     </Card>
