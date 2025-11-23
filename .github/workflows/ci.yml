@@ -24,8 +24,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-
-      - run: npm ci
+      - name: Install dependencies
+        run: npm install
       - run: npx tsc --noEmit
       - run: npm run lint --if-present
       - run: npm test --if-present
