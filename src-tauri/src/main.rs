@@ -103,7 +103,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Load tray icon from embedded resources
 fn load_tray_icon() -> Image<'static> {
-    Image::from_bytes(include_bytes!("../icons/icon.png"))
+    Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .expect("Failed to load tray icon")
 }
 

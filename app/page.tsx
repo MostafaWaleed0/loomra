@@ -42,40 +42,61 @@ function SplashScreen({ version }: { version: string | null }) {
         }}
       >
         <div className="relative">
-          <svg
+          <motion.svg
+            xmlns="http://www.w3.org/2000/svg"
             width={120}
             height={120}
-            viewBox="0 0 24 24"
-            fill="none"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="stroke-primary"
+            viewBox="0 0 1024 1024"
+            preserveAspectRatio="xMidYMid meet"
             aria-label="Application logo"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              duration: 0.8,
+              ease: [0.34, 1.56, 0.64, 1]
+            }}
           >
-            <motion.path
-              d="M21.801 10A10 10 0 1 1 17 3.335"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 1 }}
+            <motion.rect
+              width="1024"
+              height="1024"
+              rx="128"
+              fill="white"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{
-                duration: 1.2,
-                ease: [0.65, 0, 0.35, 1],
-                opacity: { duration: 0.3 }
+                duration: 0.4,
+                ease: [0.34, 1.56, 0.64, 1]
               }}
             />
-            <motion.path
-              d="m9 11 3 3L22 4"
-              initial={{ pathLength: 0, opacity: 0, scale: 0.5 }}
-              animate={{ pathLength: 1, opacity: 1, scale: 1 }}
+            <motion.g
+              transform="translate(0,1024) scale(0.1,-0.1)"
+              fill="#e60076"
+              stroke="none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{
-                duration: 0.8,
-                delay: 0.9,
-                ease: [0.34, 1.56, 0.64, 1],
-                pathLength: { ease: [0.65, 0, 0.35, 1] }
+                duration: 0.6,
+                delay: 0.3,
+                ease: [0.65, 0, 0.35, 1]
               }}
-              style={{ transformOrigin: '14px 11px' }}
-            />
-          </svg>
+            >
+              <path
+                d="M1034 10224 c-382 -64 -724 -317 -899 -664 -46 -90 -87 -210 -112
+    -322 -17 -80 -18 -253 -18 -4118 0 -3902 1 -4038 19 -4120 115 -523 510 -907
+    1015 -986 84 -13 581 -14 4121 -11 3776 3 4029 4 4095 20 516 128 838 451 961
+    967 18 72 19 262 21 4088 3 4444 8 4109 -62 4319 -65 195 -164 353 -311 497
+    -160 157 -338 254 -594 323 -61 17 -286 18 -4110 19 -3371 2 -4058 0 -4126
+    -12z m4556 -1888 c0 -118 -3 -217 -7 -219 -5 -3 -216 -31 -471 -63 -255 -32
+    -467 -61 -471 -64 -8 -5 -16 -636 -28 -2205 -6 -860 10 -3263 23 -3432 l6 -73
+    1012 1 c558 0 1022 2 1033 5 16 5 30 54 97 352 42 191 110 491 149 667 l72
+    320 425 0 424 0 -2 -55 c-2 -30 -11 -192 -22 -360 -11 -168 -31 -485 -45 -705
+    -14 -220 -31 -485 -38 -590 l-12 -190 -2667 -3 -2668 -2 0 235 0 235 23 4 c12
+    3 159 21 327 40 168 20 366 44 441 53 l137 16 8 826 c8 800 8 3779 0 3951 -2
+    47 -4 272 -5 501 l-1 415 -247 33 c-137 18 -336 43 -443 57 -107 14 -205 27
+    -217 30 -23 4 -23 5 -23 219 l0 215 1595 0 1595 0 0 -214z"
+              />
+            </motion.g>
+          </motion.svg>
           <motion.div
             className="absolute inset-0 bg-primary/20 rounded-full blur-2xl"
             initial={{ scale: 0, opacity: 0 }}
