@@ -93,9 +93,11 @@ pub struct TaskData {
     pub title: String,
     pub done: bool,
     pub goal_id: Option<String>,
+    pub parent_task_id: Option<String>,
     pub due_date: Option<String>,
     pub priority: String,
     pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -222,7 +224,8 @@ fn export_goals_data(conn: &rusqlite::Connection) -> Result<Vec<GoalData>, Strin
 
 fn export_tasks_data(conn: &rusqlite::Connection) -> Result<Vec<TaskData>, String> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, done, goal_id, due_date, priority, created_at FROM tasks"
+        "SELECT id, title, done, goal_id, parent_task_id, due_date, priority, created_at, updated_at
+         FROM tasks"
     )
     .map_err(|e| format!("Failed to prepare tasks statement: {}", e))?;
 
@@ -232,9 +235,11 @@ fn export_tasks_data(conn: &rusqlite::Connection) -> Result<Vec<TaskData>, Strin
             title: row.get(1)?,
             done: row.get::<_, i64>(2)? != 0,
             goal_id: row.get(3)?,
-            due_date: row.get(4)?,
-            priority: row.get(5)?,
-            created_at: row.get(6)?,
+            parent_task_id: row.get(4)?,
+            due_date: row.get(5)?,
+            priority: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
         })
     })
     .map_err(|e| format!("Failed to query tasks: {}", e))?;
@@ -339,15 +344,22 @@ fn import_goals_data(conn: &rusqlite::Transaction, goals: &[GoalData]) -> Result
 
 fn import_tasks_data(conn: &rusqlite::Transaction, tasks: &[TaskData]) -> Result<(), String> {
     let mut stmt = conn.prepare(
-        "INSERT INTO tasks (id, title, done, goal_id, due_date, priority, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+        "INSERT INTO tasks (id, title, done, goal_id, parent_task_id, due_date, priority, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
     )
     .map_err(|e| format!("Failed to prepare tasks insert statement: {}", e))?;
 
     for task in tasks {
         stmt.execute(rusqlite::params![
-            task.id, task.title, task.done as i64, task.goal_id, task.due_date,
-            task.priority, task.created_at
+            task.id,
+            task.title,
+            task.done as i64,
+            task.goal_id,
+            task.parent_task_id,
+            task.due_date,
+            task.priority,
+            task.created_at,
+            task.updated_at
         ])
         .map_err(|e| format!("Failed to insert task {}: {}", task.id, e))?;
     }
