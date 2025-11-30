@@ -1,4 +1,3 @@
-import { Toaster } from '@/components/ui/sonner';
 import { SettingsProvider } from '@/lib/context/settings-context';
 import type { Metadata } from 'next';
 import { ThemeProvider } from 'next-themes';
@@ -19,7 +18,6 @@ export default function RootLayout({
       <body className={cn('antialiased')}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SettingsProvider>{children}</SettingsProvider>
-          <Toaster />
         </ThemeProvider>
       </body>
     </html>

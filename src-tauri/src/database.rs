@@ -166,6 +166,40 @@ fn create_tables(conn: &Connection) -> SqlResult<()> {
         [],
     )?;
 
+    // Notification schedules table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS notification_schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            habit_id TEXT NOT NULL,
+            habit_name TEXT NOT NULL,
+            scheduled_time TEXT NOT NULL,
+            notification_type TEXT NOT NULL,
+            is_recurring INTEGER NOT NULL DEFAULT 1,
+            schedule_data TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+            UNIQUE(habit_id, scheduled_time)
+        )",
+        [],
+    )?;
+
+    // Notification history table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS notification_history (
+            id TEXT PRIMARY KEY,
+            habit_id TEXT NOT NULL,
+            sent_at TEXT NOT NULL,
+            notification_type TEXT NOT NULL,
+            opened INTEGER NOT NULL DEFAULT 0,
+            action_taken TEXT,
+            payload_data TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
     // Settings table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS settings (
@@ -207,6 +241,16 @@ fn create_indexes(conn: &Connection) -> SqlResult<()> {
         "CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_date ON habit_completions(habit_id, date)",
         "CREATE INDEX IF NOT EXISTS idx_habit_completions_habit_completed ON habit_completions(habit_id, completed, date DESC)",
         "CREATE INDEX IF NOT EXISTS idx_habit_completions_streak ON habit_completions(habit_id, date DESC, completed)",
+
+        // Notification schedule indexes
+        "CREATE INDEX IF NOT EXISTS idx_notification_schedules_habit_id ON notification_schedules(habit_id)",
+        "CREATE INDEX IF NOT EXISTS idx_notification_schedules_time ON notification_schedules(scheduled_time)",
+        "CREATE INDEX IF NOT EXISTS idx_notification_schedules_type ON notification_schedules(notification_type)",
+
+        // Notification history indexes
+        "CREATE INDEX IF NOT EXISTS idx_notification_history_habit_id ON notification_history(habit_id)",
+        "CREATE INDEX IF NOT EXISTS idx_notification_history_sent_at ON notification_history(sent_at)",
+        "CREATE INDEX IF NOT EXISTS idx_notification_history_type ON notification_history(notification_type)",
     ];
 
     for index_sql in indexes {

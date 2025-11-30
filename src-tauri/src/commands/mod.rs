@@ -3,6 +3,7 @@ pub mod auth;
 pub mod goals;
 pub mod habit_completions;
 pub mod habits;
+pub mod notifications;
 pub mod tasks;
 pub mod user_data;
 pub mod settings;

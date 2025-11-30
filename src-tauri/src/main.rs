@@ -14,6 +14,7 @@ use tauri_plugin_updater::UpdaterExt;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(setup_app)
         .invoke_handler(tauri::generate_handler![
             // Auth commands
@@ -59,6 +60,19 @@ fn main() {
             commands::habit_completions::get_habit_completions,
             commands::habit_completions::get_completion_by_date,
             commands::habit_completions::get_habit_streak,
+            // Notification commands
+            commands::notifications::send_system_notification,
+            commands::notifications::schedule_notification,
+            commands::notifications::get_scheduled_notifications,
+            commands::notifications::get_habit_notifications,
+            commands::notifications::cancel_notification,
+            commands::notifications::cancel_all_notifications,
+            commands::notifications::record_notification,
+            commands::notifications::get_notification_history,
+            commands::notifications::mark_notification_opened,
+            commands::notifications::clean_notification_history,
+            commands::notifications::check_notification_permission,
+            commands::notifications::request_notification_permission,
             // Settings commands
             commands::settings::get_settings,
             commands::settings::save_settings,
