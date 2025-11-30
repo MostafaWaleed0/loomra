@@ -10,10 +10,12 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSettings } from '@/lib/context/settings-context';
 
-import { GOAL_CONFIG, VALIDATION_MESSAGES, SYSTEM_CONSTANTS } from '@/lib/core/constants';
+import { GOAL_CONFIG, SYSTEM_CONSTANTS, VALIDATION_MESSAGES } from '@/lib/core/constants';
+import { mapUserDataError, ValidationHelpers } from '@/lib/hooks/use-user-data';
 import type { UserData } from '@/lib/types';
 import {
   AlertCircle,
+  Bell,
   Calendar,
   Database,
   Eye,
@@ -37,7 +39,7 @@ import { useTheme } from 'next-themes';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ValidatedSelect } from '../form/validated-select';
-import { mapUserDataError, ValidationHelpers } from '@/lib/hooks/use-user-data';
+import { NotificationSettingsTab } from './notification-settings-tab';
 
 interface SettingViewProps {
   isSettingVisible: boolean;
@@ -81,6 +83,7 @@ export function SettingView({
     updateGoals,
     resetSettings,
     exportAllData,
+    updateNotifications,
     importAllData
   } = useSettings();
 
@@ -193,6 +196,7 @@ export function SettingView({
     general: Palette,
     habits: Target,
     goals: TrendingUp,
+    notifications: Bell,
     data: Database,
     advanced: Zap
   };
@@ -629,6 +633,11 @@ export function SettingView({
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Notifications Settings Tab */}
+              <TabsContent value="notifications" className="space-y-4 mt-0">
+                <NotificationSettingsTab settings={settings.notifications} onUpdate={updateNotifications} />
               </TabsContent>
 
               {/* Data Management Tab */}

@@ -1,4 +1,5 @@
 'use client';
+import type { DateString, NotificationSettings } from '@/lib/types';
 import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DashboardView } from './components/dashboard/dashboard-view';
@@ -7,8 +8,11 @@ import { HabitView } from './components/habits/habit-view';
 import { LeftSidebar } from './components/layout/left-sidebar';
 import { SidebarRight } from './components/layout/right-sidebar';
 import { SiteHeader } from './components/layout/site-header';
+import { NotificationProvider } from './components/notifications/notification-provider';
+import { SettingView } from './components/setting/setting-view';
 import { TaskView } from './components/tasks/task-view';
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
+import { useSettings } from './lib/context/settings-context';
 import { useGoals } from './lib/hooks/use-goals';
 import { useHabits } from './lib/hooks/use-habits';
 import { useLocalState } from './lib/hooks/use-local-state';
@@ -17,8 +21,6 @@ import { useUserData } from './lib/hooks/use-user-data';
 import { commands } from './lib/tauri-api';
 import { PasswordVerifyScreen } from './password-verify-screen';
 import { SetupScreen } from './setup-screen';
-import { SettingView } from './components/setting/setting-view';
-import { useSettings } from './lib/context/settings-context';
 
 // Constants
 const SPLASH_SCREEN_DURATION = 2000;
@@ -153,6 +155,39 @@ export default function GoalsTrackerApp() {
   const tasksCtx = useTasks();
   const goalsCtx = useGoals(tasksCtx.tasks, tasksCtx.refreshTasks, habitsCtx.refreshHabits, settings.goals);
 
+  // Create notification settings from app settings
+  const notificationSettings: NotificationSettings = {
+    enabled: settings.notifications.habitReminders,
+    reminderTime: settings.habits.defaultReminderTime,
+    streakReminders: settings.notifications.streakMilestones,
+    milestoneReminders: settings.notifications.streakMilestones,
+    dailySummary: settings.notifications.dailySummary,
+    dailySummaryTime: '20:00',
+    goalDeadlines: settings.notifications.goalDeadlines
+  };
+
+  // Handler for completing habit from notification
+  const handleCompleteHabitFromNotification = async (habitId: string, date: DateString) => {
+    await habitsCtx.setHabitCompletion(habitId, date, true, {
+      actualAmount: 1,
+      note: '',
+      mood: null,
+      difficulty: null,
+      skipped: false
+    });
+  };
+
+  // Handler for skipping habit from notification
+  const handleSkipHabitFromNotification = async (habitId: string, date: DateString) => {
+    await habitsCtx.setHabitCompletion(habitId, date, false, {
+      actualAmount: 0,
+      note: '',
+      mood: null,
+      difficulty: null,
+      skipped: true
+    });
+  };
+
   // Check if all data is loaded
   const isDataLoaded = useMemo(() => {
     return !habitsCtx.isLoading && !tasksCtx.isLoading && !goalsCtx.isLoading && !isUserDataLoading && version !== null;
@@ -238,60 +273,68 @@ export default function GoalsTrackerApp() {
   }
 
   return (
-    <SidebarProvider open={open} onOpenChange={setOpen} style={sidebarStyle}>
-      <LeftSidebar
-        variant="inset"
-        setSettingVisible={setSettingVisible}
-        userData={userData}
-        activeView={activeView}
-        setActiveView={setActiveView}
-      />
-      <SidebarInset>
-        <SiteHeader activeView={activeView} />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2 p-6">
-            {activeView === 'dashboard' && (
-              <DashboardView
-                goals={goalsCtx.goals}
-                goalsStats={goalsCtx.stats}
-                habitsStats={habitsCtx.stats}
-                getHabitsWithMetadata={habitsCtx.getHabitsWithMetadata}
-                getGoalByTaskId={goalsCtx.getGoalByTaskId}
-                completions={habitsCtx.completions}
-                onSetHabitCompletion={habitsCtx.setHabitCompletion}
-                tasks={tasksCtx.tasks}
-                tasksStats={tasksCtx.stats}
-                onCreateTask={tasksCtx.handleCreateTask}
-                onEditTask={tasksCtx.handleEditTask}
-                onToggleTask={tasksCtx.handleToggleTask}
-                onDeleteTask={tasksCtx.handleDeleteTask}
-              />
-            )}
-            {activeView === 'goals' && (
-              <GoalView
-                settings={settings.goals}
-                getHabitsByGoalId={habitsCtx.getHabitsByGoalId}
-                onCreateTask={tasksCtx.handleCreateTask}
-                onEditTask={tasksCtx.handleEditTask}
-                onToggleTask={tasksCtx.handleToggleTask}
-                onDeleteTask={tasksCtx.handleDeleteTask}
-                tasks={tasksCtx.tasks}
-                {...goalsCtx}
-              />
-            )}
-            {activeView === 'habits' && <HabitView {...habitsCtx} goals={goalsCtx.goals} />}
-            {activeView === 'tasks' && <TaskView {...tasksCtx} getGoalByTaskId={goalsCtx.getGoalByTaskId} />}
+    <NotificationProvider
+      habits={habitsCtx.habits}
+      completions={habitsCtx.completions}
+      onComplete={handleCompleteHabitFromNotification}
+      onSkip={handleSkipHabitFromNotification}
+      settings={notificationSettings}
+    >
+      <SidebarProvider open={open} onOpenChange={setOpen} style={sidebarStyle}>
+        <LeftSidebar
+          variant="inset"
+          setSettingVisible={setSettingVisible}
+          userData={userData}
+          activeView={activeView}
+          setActiveView={setActiveView}
+        />
+        <SidebarInset>
+          <SiteHeader activeView={activeView} />
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2 p-6">
+              {activeView === 'dashboard' && (
+                <DashboardView
+                  goals={goalsCtx.goals}
+                  goalsStats={goalsCtx.stats}
+                  habitsStats={habitsCtx.stats}
+                  getHabitsWithMetadata={habitsCtx.getHabitsWithMetadata}
+                  getGoalByTaskId={goalsCtx.getGoalByTaskId}
+                  completions={habitsCtx.completions}
+                  onSetHabitCompletion={habitsCtx.setHabitCompletion}
+                  tasks={tasksCtx.tasks}
+                  tasksStats={tasksCtx.stats}
+                  onCreateTask={tasksCtx.handleCreateTask}
+                  onEditTask={tasksCtx.handleEditTask}
+                  onToggleTask={tasksCtx.handleToggleTask}
+                  onDeleteTask={tasksCtx.handleDeleteTask}
+                />
+              )}
+              {activeView === 'goals' && (
+                <GoalView
+                  settings={settings.goals}
+                  getHabitsByGoalId={habitsCtx.getHabitsByGoalId}
+                  onCreateTask={tasksCtx.handleCreateTask}
+                  onEditTask={tasksCtx.handleEditTask}
+                  onToggleTask={tasksCtx.handleToggleTask}
+                  onDeleteTask={tasksCtx.handleDeleteTask}
+                  tasks={tasksCtx.tasks}
+                  {...goalsCtx}
+                />
+              )}
+              {activeView === 'habits' && <HabitView {...habitsCtx} goals={goalsCtx.goals} />}
+              {activeView === 'tasks' && <TaskView {...tasksCtx} getGoalByTaskId={goalsCtx.getGoalByTaskId} />}
+            </div>
           </div>
-        </div>
-      </SidebarInset>
-      {activeView === 'habits' && <SidebarRight {...habitsCtx} />}
-      <SettingView
-        isSettingVisible={isSettingVisible}
-        setSettingVisible={setSettingVisible}
-        userData={userData}
-        onUpdateUserData={updateUserData}
-        onChangePassword={changePassword}
-      />
-    </SidebarProvider>
+        </SidebarInset>
+        {activeView === 'habits' && <SidebarRight {...habitsCtx} />}
+        <SettingView
+          isSettingVisible={isSettingVisible}
+          setSettingVisible={setSettingVisible}
+          userData={userData}
+          onUpdateUserData={updateUserData}
+          onChangePassword={changePassword}
+        />
+      </SidebarProvider>
+    </NotificationProvider>
   );
 }

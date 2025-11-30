@@ -101,6 +101,63 @@ export interface HabitReminder {
 }
 
 // ============================================================================
+// Notification TYPE
+// ============================================================================
+
+export interface NotificationSchedule {
+  habitId: string;
+  habitName: string;
+  scheduledTime: string;
+  notificationType: string;
+  isRecurring: boolean;
+}
+
+export interface NotificationPayload {
+  id: string;
+  habitId: string;
+  title: string;
+  body: string;
+  type: 'reminder' | 'streak' | 'milestone' | 'daily_summary' | 'goal_deadline';
+  scheduledFor: DateString;
+  icon?: string;
+  actions?: NotificationAction[];
+  data?: Record<string, any>;
+}
+
+export interface NotificationAction {
+  action: string;
+  title: string;
+}
+
+export interface NotificationSettings {
+  enabled: boolean;
+  reminderTime: string; // HH:MM format
+  streakReminders: boolean;
+  milestoneReminders: boolean;
+  dailySummary: boolean;
+  dailySummaryTime: string;
+  goalDeadlines?: boolean;
+}
+
+export interface ScheduledNotification {
+  id: string;
+  habitId: string;
+  scheduledTime: string;
+  payload: NotificationPayload;
+  status: 'pending' | 'sent' | 'cancelled';
+  createdAt: string;
+}
+
+export interface NotificationHistory {
+  id: string;
+  habitId: string;
+  sentAt: string;
+  type: string;
+  opened: boolean;
+  actionTaken?: string;
+}
+
+// ============================================================================
 // HABIT TYPES
 // ============================================================================
 

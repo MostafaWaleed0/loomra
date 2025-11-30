@@ -1,5 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { UserData, Goal, Habit, HabitCompletion, Task, DateString, DeleteStrategy } from '../lib/types';
+import type {
+  UserData,
+  Goal,
+  Habit,
+  HabitCompletion,
+  Task,
+  DateString,
+  DeleteStrategy,
+  NotificationPayload,
+  NotificationHistory,
+  NotificationSchedule
+} from '../lib/types';
 
 interface PasswordStrength {
   strength: string;
@@ -54,10 +65,35 @@ export interface AppSettings {
   data: DataSettings;
 }
 
+export interface NotificationHistoryRecord {
+  id: string;
+  habitId: string;
+  sentAt: string;
+  notificationType: string;
+  opened: boolean;
+  actionTaken: string | null;
+  payloadData: string;
+}
+
 interface AuthAPI {
   hashPassword: (password: string) => Promise<string>;
   verifyPassword: (password: string, hashedPassword: string) => Promise<boolean>;
   checkPasswordStrength: (password: string) => Promise<PasswordStrength>;
+}
+
+interface NotificationsAPI {
+  sendSystemNotification: (payload: NotificationPayload) => Promise<void>;
+  scheduleNotification: (schedule: NotificationSchedule) => Promise<NotificationSchedule>;
+  getScheduledNotifications: () => Promise<NotificationSchedule[]>;
+  getHabitNotifications: (habitId: string) => Promise<NotificationSchedule[]>;
+  cancelNotification: (habitId: string) => Promise<boolean>;
+  cancelAllNotifications: () => Promise<number>;
+  recordNotification: (history: NotificationHistoryRecord) => Promise<NotificationHistoryRecord>;
+  getNotificationHistory: (limit?: number) => Promise<NotificationHistory[]>;
+  markNotificationOpened: (notificationId: string, actionTaken?: string) => Promise<void>;
+  cleanNotificationHistory: (daysToKeep: number) => Promise<number>;
+  checkNotificationPermission: () => Promise<boolean>;
+  requestNotificationPermission: () => Promise<boolean>;
 }
 
 interface GoalsAPI {
@@ -146,6 +182,7 @@ interface TauriAPI {
   habitCompletions: HabitCompletionsAPI;
   settings: SettingsAPI;
   updater: UpdatersAPI;
+  notifications: NotificationsAPI;
 }
 
 const tauriAPI: TauriAPI = {
@@ -218,6 +255,22 @@ const tauriAPI: TauriAPI = {
     importAllData: (jsonData) => invoke('import_all_data', { jsonData }),
     exportSettings: () => invoke('export_settings'),
     importSettings: (jsonData) => invoke('import_settings', { jsonData })
+  },
+
+  notifications: {
+    sendSystemNotification: (payload) => invoke('send_system_notification', { payload }),
+    scheduleNotification: (schedule) => invoke('schedule_notification', { schedule }),
+    getScheduledNotifications: () => invoke('get_scheduled_notifications'),
+    getHabitNotifications: (habitId) => invoke('get_habit_notifications', { habitId }),
+    cancelNotification: (habitId) => invoke('cancel_notification', { habitId }),
+    cancelAllNotifications: () => invoke('cancel_all_notifications'),
+    recordNotification: (history) => invoke('record_notification', { history }),
+    getNotificationHistory: (limit) => invoke('get_notification_history', { limit: limit ?? null }),
+    markNotificationOpened: (notificationId, actionTaken) =>
+      invoke('mark_notification_opened', { notificationId, actionTaken: actionTaken ?? null }),
+    cleanNotificationHistory: (daysToKeep) => invoke('clean_notification_history', { daysToKeep }),
+    checkNotificationPermission: () => invoke('check_notification_permission'),
+    requestNotificationPermission: () => invoke('request_notification_permission')
   },
 
   updater: {
