@@ -221,7 +221,7 @@ function GoalDetailView({
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 2xl:grid-cols-[1.5fr_1fr] gap-4">
             <TaskPanel
               tasks={goalTasks}
               selectedGoalId={goal.id}
