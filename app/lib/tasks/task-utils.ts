@@ -13,6 +13,27 @@ export class TaskUtils {
     return this.dateCache.get(key)!;
   }
 
+  static collectAllTasksWithSubtasks(tasks: TaskWithStats[]): string[] {
+    const result: string[] = [];
+    const stack: TaskWithStats[] = [...tasks];
+
+    while (stack.length > 0) {
+      const task = stack.pop()!;
+
+      if ((task.subtaskCount ?? 0) > 0) {
+        result.push(task.id);
+      }
+
+      if (task.subtasks && task.subtasks.length > 0) {
+        for (let i = task.subtasks.length - 1; i >= 0; i--) {
+          stack.push(task.subtasks[i]);
+        }
+      }
+    }
+
+    return result;
+  }
+
   static getActionableTasks(tasks: TaskWithStats[]): TaskWithStats[] {
     const actionable: TaskWithStats[] = [];
     const stack: TaskWithStats[] = [...tasks];

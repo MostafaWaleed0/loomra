@@ -24,10 +24,12 @@ import {
   Circle,
   Clock,
   Edit2,
+  Expand,
   Filter,
   Flag,
   ListTodo,
   ListTree,
+  Minimize,
   MoreVertical,
   Plus,
   Search,
@@ -617,6 +619,15 @@ export function TaskPanel({
     setAddingSubtaskTo(null);
   }
 
+  function handleExpandAll(): void {
+    const allTasksWithSubtasks = TaskUtils.collectAllTasksWithSubtasks(displayTasks);
+    setExpandedTasks(new Set(allTasksWithSubtasks));
+  }
+
+  function handleCollapseAll(): void {
+    setExpandedTasks(new Set());
+  }
+
   function handleSubtaskKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -721,6 +732,8 @@ export function TaskPanel({
   const filteredTasks = TaskUtils.filterTasksHierarchical(displayTasks, searchQuery, taskFilter, timeFilter);
   const sortedTasks = TaskUtils.sortTasks(filteredTasks);
   const stats = TaskUtils.calculateTaskStats(displayTasks);
+  const hasTasksWithSubtasks = TaskUtils.collectAllTasksWithSubtasks(displayTasks).length > 0;
+  const allExpanded = hasTasksWithSubtasks && expandedTasks.size === TaskUtils.collectAllTasksWithSubtasks(displayTasks).length;
 
   return (
     <Card className="shadow-lg border-primary/10">
@@ -739,88 +752,109 @@ export function TaskPanel({
               )}
             </div>
           </CardTitle>
+          <div className="flex items-center gap-2">
+            {showFilter && stats.totalTasks > 0 && (
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 transition-all hover:shadow-sm">
+                      <Clock className="size-4" />
+                      <span className="hidden sm:inline">
+                        {timeFilter === 'all' && 'All Time'}
+                        {timeFilter === 'today' && 'Today'}
+                        {timeFilter === 'week' && 'This Week'}
+                        {timeFilter === 'overdue' && 'Overdue'}
+                        {timeFilter === 'no-date' && 'No Date'}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuLabel>Filter by Time</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={timeFilter}
+                      onValueChange={(value) => handleTimeFilterChange(value as TimeFilter)}
+                    >
+                      <DropdownMenuRadioItem value="all">
+                        All Time
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.totalTasks}</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="today">
+                        Today
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.todayTasks}</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="week">
+                        This Week
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.weekTasks}</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="overdue">
+                        Overdue
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.overdueTasks}</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="no-date">
+                        No Date
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.noDateTasks}</span>
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-          {showFilter && stats.totalTasks > 0 && (
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 transition-all hover:shadow-sm">
-                    <Clock className="size-4" />
-                    <span className="hidden sm:inline">
-                      {timeFilter === 'all' && 'All Time'}
-                      {timeFilter === 'today' && 'Today'}
-                      {timeFilter === 'week' && 'This Week'}
-                      {timeFilter === 'overdue' && 'Overdue'}
-                      {timeFilter === 'no-date' && 'No Date'}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuLabel>Filter by Time</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup
-                    value={timeFilter}
-                    onValueChange={(value) => handleTimeFilterChange(value as TimeFilter)}
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      All Time
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.totalTasks}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="today">
-                      Today
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.todayTasks}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="week">
-                      This Week
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.weekTasks}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="overdue">
-                      Overdue
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.overdueTasks}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="no-date">
-                      No Date
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.noDateTasks}</span>
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 transition-all hover:shadow-sm">
-                    <Filter className="size-4" />
-                    <span className="hidden sm:inline">
-                      {taskFilter === 'all' && 'All'}
-                      {taskFilter === 'active' && 'Active'}
-                      {taskFilter === 'completed' && 'Completed'}
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuLabel>Filter Tasks</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup
-                    value={taskFilter}
-                    onValueChange={(value) => handleTaskFilterChange(value as TaskFilter)}
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      All Tasks
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.totalTasks}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="active">
-                      Active
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.activeTasks}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="completed">
-                      Completed
-                      <span className="ml-auto text-xs text-muted-foreground">{stats.completedTasks}</span>
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 transition-all hover:shadow-sm">
+                      <Filter className="size-4" />
+                      <span className="hidden sm:inline">
+                        {taskFilter === 'all' && 'All'}
+                        {taskFilter === 'active' && 'Active'}
+                        {taskFilter === 'completed' && 'Completed'}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuLabel>Filter Tasks</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={taskFilter}
+                      onValueChange={(value) => handleTaskFilterChange(value as TaskFilter)}
+                    >
+                      <DropdownMenuRadioItem value="all">
+                        All Tasks
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.totalTasks}</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="active">
+                        Active
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.activeTasks}</span>
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="completed">
+                        Completed
+                        <span className="ml-auto text-xs text-muted-foreground">{stats.completedTasks}</span>
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+            {hasTasksWithSubtasks && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 transition-all hover:shadow-sm"
+                      onClick={allExpanded ? handleCollapseAll : handleExpandAll}
+                    >
+                      {allExpanded ? <Minimize className="size-4" /> : <Expand className="size-4" />}
+                      <span className="hidden sm:inline">{allExpanded ? 'Collapse' : 'Expand'}</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{allExpanded ? 'Collapse all subtasks' : 'Expand all subtasks'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </div>
 
         {stats.totalTasks > 0 && (
