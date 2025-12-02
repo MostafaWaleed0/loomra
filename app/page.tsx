@@ -131,7 +131,7 @@ function SplashScreen({ version }: { version: string | null }) {
 }
 
 // Main App Component
-export default function GoalsTrackerApp() {
+export default function LoomraApp() {
   const { settings } = useSettings();
   const [activeView, setActiveView] = useLocalState('active-view', 'goals');
   const [isSettingVisible, setSettingVisible] = useState(false);
