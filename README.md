@@ -74,10 +74,12 @@ The built application will be available in `src-tauri/target/release/` (or `targ
 
 Loomra uses SQLite for local data storage with the following tables:
 
-- `goals` - User goals and objectives
-- `habits` - Habit tracking data
-- `habit_completions` - Daily habit completion records
-- `tasks` - Task management
+- `goals` – User goals and objectives
+- `habits` – Habit tracking data
+- `habit_completions` – Daily habit completion records
+- `tasks` – Task management
+- `notification_schedules` – Scheduled habit notifications
+- `notification_history` – Sent notification records
 
 All database operations are handled securely via Tauri commands.
 

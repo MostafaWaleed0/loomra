@@ -157,12 +157,8 @@ export default function GoalsTrackerApp() {
 
   // Create notification settings from app settings
   const notificationSettings: NotificationSettings = {
-    enabled: settings.notifications.habitReminders,
-    reminderTime: settings.habits.defaultReminderTime,
-    streakReminders: settings.notifications.streakMilestones,
-    milestoneReminders: settings.notifications.streakMilestones,
-    dailySummary: settings.notifications.dailySummary,
-    dailySummaryTime: '20:00',
+    habitReminders: settings.notifications.habitReminders,
+    streakReminders: settings.notifications.streakReminders,
     goalDeadlines: settings.notifications.goalDeadlines
   };
 

@@ -7,11 +7,40 @@ export class NotificationScheduler {
     if (!habit.reminder.enabled) return null;
 
     const [hours, minutes] = habit.reminder.time.split(':').map(Number);
+    const today = DateUtils.getCurrentDateString();
+    const now = new Date();
 
+    if (currentDate !== today) {
+      return null;
+    }
+
+    const todayReminderHasPassed = now.getHours() > hours || (now.getHours() === hours && now.getMinutes() >= minutes);
+
+    if (todayReminderHasPassed) {
+      return null;
+    }
+
+    if (!HabitFrequencyManager.shouldCompleteOnDate(habit.frequency, today, habit.startDate)) {
+      return null;
+    }
+
+    const notificationDate = new Date();
+    notificationDate.setHours(hours, minutes, 0, 0);
+
+    return notificationDate.toISOString();
+  }
+
+  static getNextNotificationTimeAcrossDays(
+    habit: Habit,
+    currentDate: DateString = DateUtils.getCurrentDateString()
+  ): string | null {
+    if (!habit.reminder.enabled) return null;
+
+    const [hours, minutes] = habit.reminder.time.split(':').map(Number);
     let checkDate = DateUtils.createDateFromString(currentDate);
     const today = DateUtils.getCurrentDateString();
-
     const now = new Date();
+
     if (currentDate === today && (now.getHours() > hours || (now.getHours() === hours && now.getMinutes() >= minutes))) {
       checkDate.setDate(checkDate.getDate() + 1);
     }

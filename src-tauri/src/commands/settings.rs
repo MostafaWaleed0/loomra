@@ -35,10 +35,7 @@ pub struct GoalSettings {
 pub struct NotificationSettings {
     pub habit_reminders: bool,
     pub goal_deadlines: bool,
-    pub streak_milestones: bool,
-    pub daily_summary: bool,
-    pub weekly_summary: bool,
-    pub motivational_quotes: bool,
+    pub streak_reminders: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

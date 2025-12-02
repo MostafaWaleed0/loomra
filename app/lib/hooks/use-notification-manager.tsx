@@ -4,33 +4,23 @@ import { NotificationScheduler } from '@/lib/notifications/notification-schedule
 import { NOTIFICATION_RETRY_CONFIG, NOTIFICATION_STORAGE_KEYS, NotificationUtils } from '@/lib/notifications/notification-utils';
 import { commands } from '@/lib/tauri-api';
 import type {
-  DateString,
   Habit,
-  HabitCompletion,
+  NotificationManagerReturn,
   NotificationPayload,
-  NotificationSettings,
-  ScheduledNotification
+  NotificationState,
+  ScheduledNotification,
+  UseNotificationManagerProps
 } from '@/lib/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-interface UseNotificationManagerProps {
-  habits: Habit[];
-  completions: HabitCompletion[];
-  onComplete: (habitId: string, date: DateString) => Promise<void>;
-  onSkip: (habitId: string, date: DateString) => Promise<void>;
-  settings: NotificationSettings;
-}
-
-interface NotificationState {
-  scheduled: ScheduledNotification[];
-  permissionGranted: boolean;
-  isLoading: boolean;
-  error: string | null;
-  lastSync: Date | null;
-}
-
-export function useNotificationManager({ habits, completions, onComplete, onSkip, settings }: UseNotificationManagerProps) {
+export function useNotificationManager({
+  habits,
+  completions,
+  onComplete,
+  onSkip,
+  settings
+}: UseNotificationManagerProps): NotificationManagerReturn {
   const [state, setState] = useState<NotificationState>({
     scheduled: [],
     permissionGranted: false,
@@ -45,6 +35,7 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
   const schedulingQueue = useRef<Set<string>>(new Set());
   const hasInitialized = useRef(false);
   const retryTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const lastCheckedDate = useRef<string>(DateUtils.getCurrentDateString());
 
   const exponentialBackoff = useCallback((attempt: number): number => {
     const delay = Math.min(NOTIFICATION_RETRY_CONFIG.baseDelay * Math.pow(2, attempt), NOTIFICATION_RETRY_CONFIG.maxDelay);
@@ -55,7 +46,7 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
     async <T,>(operation: () => Promise<T>, context: string, attempt = 0): Promise<T | null> => {
       try {
         return await operation();
-      } catch (error) {
+      } catch {
         if (attempt < NOTIFICATION_RETRY_CONFIG.maxAttempts - 1) {
           const delay = exponentialBackoff(attempt);
           await new Promise((resolve) => setTimeout(resolve, delay));
@@ -158,33 +149,40 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
       return;
     }
 
-    const notifications: ScheduledNotification[] = schedules.map((schedule) => {
-      const scheduledDate = DateUtils.formatDate(new Date(schedule.scheduledTime));
-      const habit = habits.find((h) => h.id === schedule.habitId);
+    const today = DateUtils.getCurrentDateString();
 
-      return {
-        id: NotificationUtils.generateNotificationId(),
-        habitId: schedule.habitId,
-        scheduledTime: schedule.scheduledTime,
-        payload: habit
-          ? NotificationUtils.createReminderPayload(habit, scheduledDate)
-          : {
-              id: NotificationUtils.generateNotificationId(),
-              habitId: schedule.habitId,
-              title: `⏰ Time for ${schedule.habitName}`,
-              body: "Don't forget your habit!",
-              type: schedule.notificationType as any,
-              scheduledFor: scheduledDate,
-              actions: [
-                { action: 'complete', title: 'Mark Complete' },
-                { action: 'skip', title: 'Skip Today' },
-                { action: 'dismiss', title: 'Dismiss' }
-              ]
-            },
-        status: 'pending' as const,
-        createdAt: new Date().toISOString()
-      };
-    });
+    const notifications: ScheduledNotification[] = schedules
+      .filter((schedule) => {
+        const scheduledDate = DateUtils.formatDate(new Date(schedule.scheduledTime));
+        return scheduledDate === today;
+      })
+      .map((schedule) => {
+        const scheduledDate = DateUtils.formatDate(new Date(schedule.scheduledTime));
+        const habit = habits.find((h) => h.id === schedule.habitId);
+
+        return {
+          id: NotificationUtils.generateNotificationId(),
+          habitId: schedule.habitId,
+          scheduledTime: schedule.scheduledTime,
+          payload: habit
+            ? NotificationUtils.createReminderPayload(habit, scheduledDate)
+            : {
+                id: NotificationUtils.generateNotificationId(),
+                habitId: schedule.habitId,
+                title: `⏰ Time for ${schedule.habitName}`,
+                body: "Don't forget your habit!",
+                type: schedule.notificationType as any,
+                scheduledFor: scheduledDate,
+                actions: [
+                  { action: 'complete', title: 'Mark Complete' },
+                  { action: 'skip', title: 'Skip Today' },
+                  { action: 'dismiss', title: 'Dismiss' }
+                ]
+              },
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+      });
 
     setState((prev) => ({
       ...prev,
@@ -284,9 +282,7 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
 
       setState((prev) => ({
         ...prev,
-        scheduled: prev.scheduled.map((notif) =>
-          notif.payload.id === payload.id ? { ...notif, status: 'sent' as const } : notif
-        )
+        scheduled: prev.scheduled.map((notif) => (notif.payload.id === payload.id ? { ...notif, status: 'sent' } : notif))
       }));
     },
     [sendSystemNotification, sendInAppNotification]
@@ -323,13 +319,15 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
 
   const scheduleNotification = useCallback(
     async (habit: Habit): Promise<void> => {
-      if (!settings.enabled || !habit.reminder.enabled) return;
+      if (!settings.habitReminders || !habit.reminder.enabled) return;
       if (schedulingQueue.current.has(habit.id)) return;
 
       schedulingQueue.current.add(habit.id);
 
       try {
-        const nextTime = NotificationScheduler.getNextNotificationTime(habit);
+        const currentDate = DateUtils.getCurrentDateString();
+        const nextTime = NotificationScheduler.getNextNotificationTime(habit, currentDate);
+
         if (!nextTime) {
           schedulingQueue.current.delete(habit.id);
           return;
@@ -343,6 +341,12 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
         }
 
         const timeUntil = NotificationUtils.getTimeUntilNotification(nextTime);
+
+        if (timeUntil < 0) {
+          schedulingQueue.current.delete(habit.id);
+          return;
+        }
+
         const payload = NotificationUtils.createReminderPayload(habit, scheduledDate);
 
         const result = await withRetry(
@@ -381,10 +385,17 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
         }
 
         const timeout = setTimeout(() => {
-          if (!NotificationUtils.isHabitCompletedOrSkipped(completions, habit.id, scheduledDate)) {
+          const notificationDate = DateUtils.formatDate(new Date(nextTime));
+          const todayDate = DateUtils.getCurrentDateString();
+
+          if (
+            notificationDate === todayDate &&
+            !NotificationUtils.isHabitCompletedOrSkipped(completions, habit.id, notificationDate)
+          ) {
             sendNotification(payload);
           }
-          scheduleNotification(habit);
+
+          timeoutRefs.current.delete(habit.id);
         }, timeUntil);
 
         timeoutRefs.current.set(habit.id, timeout);
@@ -396,7 +407,7 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
         schedulingQueue.current.delete(habit.id);
       }
     },
-    [settings.enabled, completions, withRetry, sendNotification]
+    [settings.habitReminders, completions, withRetry, sendNotification]
   );
 
   const cancelNotification = useCallback(
@@ -415,7 +426,7 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
       setState((prev) => ({
         ...prev,
         scheduled: prev.scheduled.map((notif) =>
-          notif.habitId === habitId && notif.status === 'pending' ? { ...notif, status: 'cancelled' as const } : notif
+          notif.habitId === habitId && notif.status === 'pending' ? { ...notif, status: 'cancelled' } : notif
         )
       }));
 
@@ -426,7 +437,7 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
       if (!result) {
         setState((prev) => ({
           ...prev,
-          scheduled: prev.scheduled.map((notif) => (notif.habitId === habitId ? { ...notif, status: 'pending' as const } : notif))
+          scheduled: prev.scheduled.map((notif) => (notif.habitId === habitId ? { ...notif, status: 'pending' } : notif))
         }));
         setCancelledNotifications((prev) => {
           const newSet = new Set(prev);
@@ -445,11 +456,11 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
     schedulingQueue.current.clear();
 
     const schedulePromises = habits
-      .filter((habit) => habit.reminder.enabled && settings.enabled)
+      .filter((habit) => habit.reminder.enabled && settings.habitReminders)
       .map((habit) => scheduleNotification(habit));
 
     await Promise.allSettled(schedulePromises);
-  }, [habits, settings.enabled, scheduleNotification]);
+  }, [habits, settings.habitReminders, scheduleNotification]);
 
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -471,11 +482,58 @@ export function useNotificationManager({ habits, completions, onComplete, onSkip
     }
   }, [completions, rescheduleAll]);
 
+  useEffect(() => {
+    const checkAndCleanup = () => {
+      const today = DateUtils.getCurrentDateString();
+
+      if (lastCheckedDate.current === today) {
+        return;
+      }
+
+      lastCheckedDate.current = today;
+
+      setState((prev) => {
+        const todayNotifications = prev.scheduled.filter((n) => {
+          const notificationDate = DateUtils.formatDate(new Date(n.scheduledTime));
+          return notificationDate === today;
+        });
+
+        if (todayNotifications.length === prev.scheduled.length) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          scheduled: todayNotifications
+        };
+      });
+
+      timeoutRefs.current.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      timeoutRefs.current.clear();
+
+      if (hasInitialized.current) {
+        rescheduleAll();
+      }
+    };
+
+    const interval = setInterval(checkAndCleanup, 60000);
+
+    return () => clearInterval(interval);
+  }, [rescheduleAll]);
+
   const getUpcomingNotifications = useCallback(() => {
-    const activeNotifications = NotificationUtils.filterActiveNotifications(
-      state.scheduled.filter((n) => n.status === 'pending'),
-      completions
-    );
+    const today = DateUtils.getCurrentDateString();
+
+    const todayNotifications = state.scheduled.filter((n) => {
+      if (n.status !== 'pending') return false;
+
+      const notificationDate = DateUtils.formatDate(new Date(n.scheduledTime));
+      return notificationDate === today;
+    });
+
+    const activeNotifications = NotificationUtils.filterActiveNotifications(todayNotifications, completions);
 
     return NotificationUtils.sortByScheduledTime(activeNotifications, true);
   }, [state.scheduled, completions]);
