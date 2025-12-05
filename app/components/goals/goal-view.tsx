@@ -333,6 +333,7 @@ export function GoalView({
   function handleCreateNew() {
     resetForm();
     handleCreateGoal({ title: 'New Goal' });
+    setIsEditorOpen(true);
   }
 
   function handleGoalSelect(goal: GoalWithStats) {
