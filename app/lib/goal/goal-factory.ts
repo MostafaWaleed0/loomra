@@ -9,6 +9,7 @@ import type {
   IconName,
   ValidationResult
 } from '@/lib/types';
+import { UIUtils } from '../core';
 import { GOAL_CONFIG, SYSTEM_CONSTANTS, UI_CONFIG } from '../core/constants';
 import { DateUtils } from '../core/date-utils';
 import { generateId } from '../core/id-generator';
@@ -126,18 +127,14 @@ export class GoalFactory {
     },
 
     icon: (value: any): ValidationResult<IconName> => {
-      try {
-        const icons: IconName[] = Array.from(UI_CONFIG.ICONS.AVAILABLE ?? []);
-        const defaultIcon: IconName = icons[0] ?? 'Activity';
-        const isValid = icons.includes(value as IconName);
-        return {
-          value: isValid ? value : defaultIcon,
-          isValid,
-          error: isValid ? undefined : `Invalid icon. Using default: ${defaultIcon}`
-        };
-      } catch {
-        return { value: 'Activity', isValid: false, error: 'Error validating icon. Using default: Activity' };
-      }
+      const isValid = UI_CONFIG.ICONS.AVAILABLE.includes(value);
+      const randomIcon = UIUtils.getRandomItem(UI_CONFIG.ICONS.AVAILABLE);
+
+      return {
+        value: isValid ? value : randomIcon,
+        isValid,
+        error: isValid ? undefined : `Invalid icon. Using default: ${randomIcon}`
+      };
     },
 
     notes: (value: any): ValidationResult<string> => {
@@ -158,20 +155,14 @@ export class GoalFactory {
     },
 
     color: (value: any): ValidationResult<string> => {
-      const fallback = '#3b82f6';
-      try {
-        const colors = UI_CONFIG.COLORS.ALL ?? [];
-        const defaultColor = colors[0]?.value || fallback;
-        const match = colors.find((c) => c.value === value);
-        const isValid = Boolean(match);
-        return {
-          value: isValid ? value : defaultColor,
-          isValid,
-          error: isValid ? undefined : 'Invalid color. Using default color'
-        };
-      } catch {
-        return { value: fallback, isValid: false, error: 'Error validating color. Using default color' };
-      }
+      const isValid = UI_CONFIG.COLORS.ALL.some((color) => color.value === value);
+      const randomColor = UIUtils.getRandomItem(UI_CONFIG.COLORS.ALL).value;
+
+      return {
+        value: isValid ? value : randomColor,
+        isValid,
+        error: isValid ? undefined : 'Invalid color. Using default color'
+      };
     },
 
     deadline: (value: any): ValidationResult<DateString | undefined> => {

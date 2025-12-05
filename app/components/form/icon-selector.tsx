@@ -21,7 +21,7 @@ export function IconSelector({
   onIconSelect,
   error,
   label = 'Choose Icon',
-  columns = 7,
+  columns = 8,
   showCount = true
 }: IconSelectorProps) {
   const gridClass = cn('grid gap-3', {

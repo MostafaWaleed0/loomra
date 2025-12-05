@@ -1,5 +1,5 @@
 import { ColorPicker } from '@/components/form/color-picker';
-import { IconSelector } from '@/components/form/icon-selector';
+import { IconSelector } from '@/components/form/dynamic-icon-selector';
 import { HabitIcon } from '@/components/habit-icon';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
