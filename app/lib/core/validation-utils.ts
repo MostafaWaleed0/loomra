@@ -3,7 +3,11 @@ import { UI_CONFIG } from './constants';
 export class ValidationUtils {
   static sanitizeString(str: string): string {
     if (typeof str !== 'string') return '';
-    return str.trim().replace(/\s+/g, ' ');
+
+    return str
+      .normalize('NFKC')
+      .replace(/\s+/g, ' ')
+      .replace(/[^a-zA-Z0-9À-ž\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF.,!?'"()\- ]/g, '');
   }
 
   static sanitizeNotes(str: string): string {

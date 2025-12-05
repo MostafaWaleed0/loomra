@@ -16,7 +16,7 @@ interface SetupScreenProps {
 const steps = [
   {
     id: 'welcome',
-    title: 'Welcome to Goals Tracker',
+    title: 'Welcome to Loomra',
     subtitle: 'Your journey to productivity starts here',
     icon: Sparkles
   },

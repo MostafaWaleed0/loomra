@@ -52,6 +52,10 @@ export type DifficultyValue = (typeof UI_CONFIG.STATUS_OPTIONS.DIFFICULTY)[numbe
 export type DeleteStrategy = 'unlink' | 'cascade';
 export type GoalSortBy = 'title' | 'deadline' | 'priority' | 'createdAt';
 
+export type NotificationType = 'reminder' | 'streak' | 'milestone' | 'daily_summary' | 'goal_deadline';
+export type NotificationActionType = 'complete' | 'skip' | 'dismiss' | 'view';
+export type NotificationStatus = 'pending' | 'sent' | 'cancelled' | 'failed';
+
 // ============================================================================
 // FREQUENCY TYPES
 // ============================================================================
@@ -104,12 +108,9 @@ export interface HabitReminder {
 // Notification TYPE
 // ============================================================================
 
-export interface NotificationSchedule {
-  habitId: string;
-  habitName: string;
-  scheduledTime: string;
-  notificationType: string;
-  isRecurring: boolean;
+export interface NotificationAction {
+  action: NotificationActionType;
+  title: string;
 }
 
 export interface NotificationPayload {
@@ -117,26 +118,19 @@ export interface NotificationPayload {
   habitId: string;
   title: string;
   body: string;
-  type: 'reminder' | 'streak' | 'milestone' | 'daily_summary' | 'goal_deadline';
+  type: NotificationType;
   scheduledFor: DateString;
   icon?: string;
   actions?: NotificationAction[];
   data?: Record<string, any>;
 }
 
-export interface NotificationAction {
-  action: string;
-  title: string;
-}
-
-export interface NotificationSettings {
-  enabled: boolean;
-  reminderTime: string; // HH:MM format
-  streakReminders: boolean;
-  milestoneReminders: boolean;
-  dailySummary: boolean;
-  dailySummaryTime: string;
-  goalDeadlines?: boolean;
+export interface NotificationSchedule {
+  habitId: string;
+  habitName: string;
+  scheduledTime: string;
+  notificationType: NotificationType;
+  isRecurring: boolean;
 }
 
 export interface ScheduledNotification {
@@ -144,17 +138,36 @@ export interface ScheduledNotification {
   habitId: string;
   scheduledTime: string;
   payload: NotificationPayload;
-  status: 'pending' | 'sent' | 'cancelled';
+  status: NotificationStatus;
   createdAt: string;
+  sentAt?: string;
+  error?: string;
 }
 
 export interface NotificationHistory {
   id: string;
   habitId: string;
   sentAt: string;
-  type: string;
+  type: NotificationType;
   opened: boolean;
-  actionTaken?: string;
+  actionTaken?: NotificationActionType | null;
+  payloadData?: string;
+}
+
+export interface NotificationHistoryRecord {
+  id: string;
+  habitId: string;
+  sentAt: string;
+  notificationType: string;
+  opened: boolean;
+  actionTaken: string | null;
+  payloadData: string;
+}
+
+export interface NotificationSettings {
+  habitReminders: boolean;
+  streakReminders: boolean;
+  goalDeadlines?: boolean;
 }
 
 // ============================================================================
@@ -634,6 +647,46 @@ export interface UseTasksReturn {
   getUpcomingTasks: (days?: number) => TaskWithStats[];
   getSubtasks: (parentTaskId: string) => TaskWithStats[];
   getAllSubtasksFlat: (parentTaskId: string) => TaskWithStats[];
+}
+
+export interface UseNotificationManagerProps {
+  habits: Habit[];
+  completions: HabitCompletion[];
+  onComplete: (habitId: string, date: DateString) => Promise<void>;
+  onSkip: (habitId: string, date: DateString) => Promise<void>;
+  settings: NotificationSettings;
+}
+
+export interface NotificationState {
+  scheduled: ScheduledNotification[];
+  permissionGranted: boolean;
+  isLoading: boolean;
+  error: string | null;
+  lastSync: Date | null;
+}
+
+export interface NotificationManagerReturn {
+  // State
+  scheduledNotifications: ScheduledNotification[];
+  permissionGranted: boolean;
+  isLoading: boolean;
+  error: string | null;
+  lastSync: Date | null;
+
+  // Actions
+  scheduleNotification: (habit: Habit) => Promise<void>;
+  cancelNotification: (habitId: string) => Promise<void>;
+  rescheduleAll: () => Promise<void>;
+  sendNotification: (payload: NotificationPayload) => Promise<void>;
+
+  // Queries
+  getUpcomingNotifications: () => ScheduledNotification[];
+  getNotificationHistory: (limit?: number) => Promise<NotificationHistory[] | null>;
+  cleanNotificationHistory: (daysToKeep?: number) => Promise<number>;
+
+  // Utilities
+  refreshPermission: () => Promise<boolean>;
+  refreshScheduled: () => Promise<void>;
 }
 // ============================================================================
 // FREQUENCY CONFIG TYPES

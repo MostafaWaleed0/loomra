@@ -2,12 +2,12 @@ import { ColorPicker } from '@/components/form/color-picker';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DateUtils, GOAL_CONFIG, SYSTEM_CONSTANTS, UI_CONFIG } from '@/lib/core';
+import type { Goal, GoalFormData } from '@/lib/types';
 import { DatePicker } from '../form/date-picker';
-import { IconSelector } from '../form/icon-selector';
+import { IconSelector } from '../form/dynamic-icon-selector';
 import { ValidatedInput } from '../form/validated-input';
 import { ValidatedSelect } from '../form/validated-select';
 import { ValidatedTextarea } from '../form/validated-textarea';
-import type { Goal, GoalFormData } from '@/lib/types';
 
 interface ValidationErrorsProps {
   errors: Record<string, string>;
@@ -53,8 +53,8 @@ export function GoalEditorDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="max-w-md p-0 flex flex-col">
-        <SheetHeader className="flex flex-row items-center justify-between border-b p-6 flex-shrink-0">
+      <SheetContent className="min-w-md max-w-md p-0 flex flex-col">
+        <SheetHeader className="flex flex-row items-center justify-between border-b p-6 shrink-0">
           <div className="flex flex-col gap-1">
             <SheetTitle>Edit Goal</SheetTitle>
           </div>
@@ -117,13 +117,13 @@ export function GoalEditorDrawer({
             error={validationErrors.color}
           />
         </div>
-        <SheetFooter className="flex flex-row items-center justify-end border-t p-6 flex-shrink-0">
+        <SheetFooter className="flex flex-row items-center justify-end border-t p-6 shrink-0">
           {hasErrors && <ValidationErrors errors={validationErrors} />}
           <div className="flex gap-3">
             <Button onClick={onClose} variant="outline">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={hasErrors} className="min-w-[80px]">
+            <Button onClick={handleSave} disabled={hasErrors} className="min-w-20">
               Save
             </Button>
           </div>

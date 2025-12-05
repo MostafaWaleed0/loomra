@@ -50,10 +50,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   notifications: {
     habitReminders: true,
     goalDeadlines: true,
-    streakMilestones: true,
-    dailySummary: false,
-    weeklySummary: true,
-    motivationalQuotes: false
+    streakReminders: true
   },
   data: {
     autoBackup: true,

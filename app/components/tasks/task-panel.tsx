@@ -887,11 +887,7 @@ export function TaskPanel({
           onToggle={() => setIsQuickAddExpanded(!isQuickAddExpanded)}
         />
 
-        {stats.totalTasks > 0 && (
-          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
-            {sortedTasks.map((task) => renderTask(task))}
-          </div>
-        )}
+        {stats.totalTasks > 0 && <div className="space-y-2 px-2">{sortedTasks.map((task) => renderTask(task))}</div>}
 
         {filteredTasks.length === 0 && stats.totalTasks > 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">

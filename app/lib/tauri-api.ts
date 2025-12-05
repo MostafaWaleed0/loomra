@@ -9,7 +9,9 @@ import type {
   DeleteStrategy,
   NotificationPayload,
   NotificationHistory,
-  NotificationSchedule
+  NotificationSchedule,
+  NotificationHistoryRecord,
+  NotificationSettings
 } from '../lib/types';
 
 interface PasswordStrength {
@@ -43,15 +45,6 @@ export interface GoalSettings {
   showProgressPercentage: boolean;
 }
 
-export interface NotificationSettings {
-  habitReminders: boolean;
-  goalDeadlines: boolean;
-  streakMilestones: boolean;
-  dailySummary: boolean;
-  weeklySummary: boolean;
-  motivationalQuotes: boolean;
-}
-
 export interface DataSettings {
   autoBackup: boolean;
   backupFrequency: 'daily' | 'weekly' | 'monthly';
@@ -65,16 +58,6 @@ export interface AppSettings {
   data: DataSettings;
 }
 
-export interface NotificationHistoryRecord {
-  id: string;
-  habitId: string;
-  sentAt: string;
-  notificationType: string;
-  opened: boolean;
-  actionTaken: string | null;
-  payloadData: string;
-}
-
 interface AuthAPI {
   hashPassword: (password: string) => Promise<string>;
   verifyPassword: (password: string, hashedPassword: string) => Promise<boolean>;
@@ -83,6 +66,8 @@ interface AuthAPI {
 
 interface NotificationsAPI {
   sendSystemNotification: (payload: NotificationPayload) => Promise<void>;
+  checkNotificationPermission: () => Promise<boolean>;
+  requestNotificationPermission: () => Promise<boolean>;
   scheduleNotification: (schedule: NotificationSchedule) => Promise<NotificationSchedule>;
   getScheduledNotifications: () => Promise<NotificationSchedule[]>;
   getHabitNotifications: (habitId: string) => Promise<NotificationSchedule[]>;
@@ -92,8 +77,6 @@ interface NotificationsAPI {
   getNotificationHistory: (limit?: number) => Promise<NotificationHistory[]>;
   markNotificationOpened: (notificationId: string, actionTaken?: string) => Promise<void>;
   cleanNotificationHistory: (daysToKeep: number) => Promise<number>;
-  checkNotificationPermission: () => Promise<boolean>;
-  requestNotificationPermission: () => Promise<boolean>;
 }
 
 interface GoalsAPI {

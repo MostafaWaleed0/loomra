@@ -9,7 +9,7 @@ describe('GoalFactory', () => {
       it('should validate a valid title', () => {
         const result = GoalFactory.validators.title(' Learn TypeScript ');
         expect(result.isValid).toBe(true);
-        expect(result.value).toBe('Learn TypeScript');
+        expect(result.value).toBe(' Learn TypeScript ');
       });
 
       it('should reject empty title', () => {

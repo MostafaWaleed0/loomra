@@ -45,7 +45,7 @@ export function NotificationSettingsTab({ settings, onUpdate }: NotificationSett
         </div>
 
         {/* Goal Deadlines */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
+        {/* <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
           <div className="flex items-center gap-3">
             <TrendingUp className="size-5 text-chart-5" />
             <div className="space-y-0.5">
@@ -60,23 +60,23 @@ export function NotificationSettingsTab({ settings, onUpdate }: NotificationSett
             checked={settings.goalDeadlines}
             onCheckedChange={(checked) => handleUpdate('goalDeadlines', checked)}
           />
-        </div>
+        </div> */}
 
         {/* Streak Milestones */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
           <div className="flex items-center gap-3">
             <TrendingUp className="size-5 text-chart-1" />
             <div className="space-y-0.5">
-              <Label htmlFor="streakMilestones" className="text-sm font-semibold">
+              <Label htmlFor="streakReminders" className="text-sm font-semibold">
                 Streak Milestones
               </Label>
               <p className="text-xs text-muted-foreground">Celebrate when you reach streak milestones</p>
             </div>
           </div>
           <Switch
-            id="streakMilestones"
-            checked={settings.streakMilestones}
-            onCheckedChange={(checked) => handleUpdate('streakMilestones', checked)}
+            id="streakReminders"
+            checked={settings.streakReminders}
+            onCheckedChange={(checked) => handleUpdate('streakReminders', checked)}
           />
         </div>
       </CardContent>

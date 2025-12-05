@@ -15,6 +15,7 @@ import type {
 import { HABIT_CONFIG, SYSTEM_CONSTANTS, UI_CONFIG } from '../core/constants';
 import { DateUtils } from '../core/date-utils';
 import { generateId } from '../core/id-generator';
+import { UIUtils } from '../core/ui-utils';
 import { ValidationUtils } from '../core/validation-utils';
 import type { AppSettings } from '../tauri-api';
 import { HabitFrequencyManager } from './frequency-system';
@@ -44,14 +45,18 @@ export class HabitFactory {
     name: (value: any): ValidationResult<string> => {
       try {
         const sanitized = ValidationUtils.sanitizeString(value) || '';
-        if (sanitized.length < SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
+        const minLength = SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH;
+        const maxLength = SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH;
+
+        if (sanitized.length < minLength) {
           return {
-            value: 'Untitled habit',
+            value: '',
             isValid: false,
             error: `Name must be at least ${SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`
           };
         }
-        if (sanitized.length > SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
+
+        if (sanitized.length > maxLength) {
           return {
             value: sanitized.substring(0, SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH),
             isValid: false,
@@ -141,17 +146,21 @@ export class HabitFactory {
 
     icon: (value: any): ValidationResult<IconName> => {
       const isValid = UI_CONFIG.ICONS.AVAILABLE.includes(value);
+      const randomIcon = UIUtils.getRandomItem(UI_CONFIG.ICONS.AVAILABLE);
+
       return {
-        value: isValid ? value : UI_CONFIG.ICONS.AVAILABLE[0],
+        value: isValid ? value : randomIcon,
         isValid,
-        error: isValid ? undefined : `Invalid icon. Using default: ${UI_CONFIG.ICONS.AVAILABLE[0]}`
+        error: isValid ? undefined : `Invalid icon. Using default: ${randomIcon}`
       };
     },
 
     color: (value: any): ValidationResult<string> => {
       const isValid = UI_CONFIG.COLORS.ALL.some((color) => color.value === value);
+      const randomColor = UIUtils.getRandomItem(UI_CONFIG.COLORS.ALL).value;
+
       return {
-        value: isValid ? value : UI_CONFIG.COLORS.ALL[0].value,
+        value: isValid ? value : randomColor,
         isValid,
         error: isValid ? undefined : 'Invalid color. Using default color'
       };
@@ -364,7 +373,7 @@ export class HabitFactory {
 
       return {
         id: existing?.id ?? generateId('habit'),
-        name: HabitFactory.validate.name(data?.name, settings),
+        name: HabitFactory.validate.name(data?.name ?? 'Untitled habit', settings),
         category: HabitFactory.validate.category(data?.category, settings),
         icon: HabitFactory.validate.icon(data?.icon, settings),
         color: HabitFactory.validate.color(data?.color, settings),
