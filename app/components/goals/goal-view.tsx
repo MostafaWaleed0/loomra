@@ -221,24 +221,22 @@ function GoalDetailView({
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 2xl:grid-cols-[1.5fr_1fr] gap-4">
-            <TaskPanel
-              tasks={goalTasks}
-              selectedGoalId={goal.id}
-              onCreateTask={onCreateTask}
-              onToggleTask={onToggleTask}
-              onDeleteTask={onDeleteTask}
-              onEditTask={onEditTask}
-              getTasksByGoal={(goalId) => tasks.filter((t) => t.goalId === goalId)}
-              getGoalByTaskId={getGoalByTaskId}
-              showFilter={false}
-            />
-            <HabitsPanel getHabitsByGoalId={getHabitsByGoalId} selectedGoalId={goal.id} />
-          </div>
+          <TaskPanel
+            tasks={goalTasks}
+            selectedGoalId={goal.id}
+            onCreateTask={onCreateTask}
+            onToggleTask={onToggleTask}
+            onDeleteTask={onDeleteTask}
+            onEditTask={onEditTask}
+            getTasksByGoal={(goalId) => tasks.filter((t) => t.goalId === goalId)}
+            getGoalByTaskId={getGoalByTaskId}
+            showFilter={false}
+          />
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
+          <HabitsPanel getHabitsByGoalId={getHabitsByGoalId} selectedGoalId={goal.id} />
           <GoalNotesCard
             notes={goal.notes || ''}
             onSave={(notes) => onUpdate(goal.id, { notes })}
