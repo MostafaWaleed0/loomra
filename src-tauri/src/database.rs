@@ -30,8 +30,18 @@ impl From<DatabaseError> for String {
     }
 }
 
+fn get_environment() -> String {
+    if cfg!(debug_assertions) {
+        "dev".to_string()
+    } else {
+        "prod".to_string()
+    }
+}
+
 /// Initialize the database with proper error handling and connection pooling
 pub fn init_database(app_handle: &AppHandle) -> Result<(), DatabaseError> {
+    let env_mode = get_environment();
+
     let app_dir = app_handle
         .path()
         .app_data_dir()
@@ -39,9 +49,13 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), DatabaseError> {
 
     std::fs::create_dir_all(&app_dir)?;
 
-    let db_path = app_dir.join("loomra.db");
+    let db_filename = match env_mode.as_str() {
+        "dev" => "loomra-dev.db",
+        _ => "loomra.db",
+    };
 
-    // Create connection pool
+    let db_path = app_dir.join(db_filename);
+
     let manager = SqliteConnectionManager::file(&db_path);
     let pool = Pool::builder()
         .max_size(10)
@@ -49,14 +63,12 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), DatabaseError> {
         .build(manager)
         .map_err(|e| DatabaseError::Pool(e.to_string()))?;
 
-    // Configure first connection and set up schema
     {
         let conn = pool.get().map_err(|e| DatabaseError::Pool(e.to_string()))?;
         configure_connection(&conn)?;
         create_schema(&conn)?;
     }
 
-    // Store connection pool in app state
     app_handle.manage(AppState { db: pool });
 
     Ok(())
