@@ -44,14 +44,18 @@ export class HabitFactory {
     name: (value: any): ValidationResult<string> => {
       try {
         const sanitized = ValidationUtils.sanitizeString(value) || '';
-        if (sanitized.length < SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH) {
+        const minLength = SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH;
+        const maxLength = SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH;
+
+        if (sanitized.length < minLength) {
           return {
-            value: 'Untitled habit',
+            value: '',
             isValid: false,
             error: `Name must be at least ${SYSTEM_CONSTANTS.VALIDATION.MIN_NAME_LENGTH} characters`
           };
         }
-        if (sanitized.length > SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH) {
+
+        if (sanitized.length > maxLength) {
           return {
             value: sanitized.substring(0, SYSTEM_CONSTANTS.VALIDATION.MAX_NAME_LENGTH),
             isValid: false,
@@ -364,7 +368,7 @@ export class HabitFactory {
 
       return {
         id: existing?.id ?? generateId('habit'),
-        name: HabitFactory.validate.name(data?.name, settings),
+        name: HabitFactory.validate.name(data?.name ?? 'Untitled habit', settings),
         category: HabitFactory.validate.category(data?.category, settings),
         icon: HabitFactory.validate.icon(data?.icon, settings),
         color: HabitFactory.validate.color(data?.color, settings),

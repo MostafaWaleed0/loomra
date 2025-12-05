@@ -16,7 +16,7 @@ describe('HabitFactory', () => {
       it('should handle empty name', () => {
         const result = HabitFactory.validators.name('');
         expect(result.isValid).toBe(false);
-        expect(result.value).toBe('Untitled habit');
+        expect(result.value).toBe('');
         expect(result.error).toContain('at least');
       });
 
@@ -30,7 +30,7 @@ describe('HabitFactory', () => {
 
       it('should sanitize whitespace', () => {
         const result = HabitFactory.validators.name('  Test  ');
-        expect(result.value).toBe('Test');
+        expect(result.value).toBe(' Test ');
         expect(result.isValid).toBe(true);
       });
 

@@ -7,7 +7,7 @@ export class ValidationUtils {
     return str
       .normalize('NFKC')
       .replace(/\s+/g, ' ')
-      .replace(/[^a-zA-Z0-9À-ž.,!?'"()\- ]/g, '');
+      .replace(/[^a-zA-Z0-9À-ž\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF.,!?'"()\- ]/g, '');
   }
 
   static sanitizeNotes(str: string): string {
