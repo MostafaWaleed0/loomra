@@ -1,6 +1,6 @@
 [package]
 name = "loomra"
-version = "1.4.0"
+version = "1.5.0"
 description = "Goal Tracker and Habit Manager"
 authors = ["Mostafa Waleed"]
 repository = "https://github.com/MostafaWaleed0/loomra"
