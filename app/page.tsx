@@ -303,6 +303,10 @@ export default function LoomraApp() {
                   onEditTask={tasksCtx.handleEditTask}
                   onToggleTask={tasksCtx.handleToggleTask}
                   onDeleteTask={tasksCtx.handleDeleteTask}
+                  setActiveView={setActiveView}
+                  activeView={activeView}
+                  setSelectedGoal={goalsCtx.setSelectedGoal}
+                  settings={settings}
                 />
               )}
               {activeView === 'goals' && (

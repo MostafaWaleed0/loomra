@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { ColorUtils, DateUtils, UIUtils } from '@/lib/core';
 import type { GoalWithStats } from '@/lib/types';
 import { Calendar, Edit2, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
 
 interface GoalCardProps {
   goal: GoalWithStats;
@@ -14,14 +15,21 @@ interface GoalCardProps {
 }
 
 export function GoalCard({ goal, onClick, onEdit, showProgressPercentage }: GoalCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const Icon = UIUtils.getIconComponent(goal.icon);
 
-  function handleEditClick() {
+  function handleEditClick(e: React.MouseEvent) {
+    e.stopPropagation();
     onEdit();
   }
 
   return (
-    <Card onClick={onClick} className="gap-10 group relative overflow-hidden cursor-pointer transition-all duration-500">
+    <Card
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="gap-10 group relative overflow-hidden cursor-pointer transition-all duration-500 hover:shadow-lg"
+    >
       <div
         className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
         style={{
@@ -32,10 +40,11 @@ export function GoalCard({ goal, onClick, onEdit, showProgressPercentage }: Goal
           maskComposite: 'exclude'
         }}
       />
+
       <CardHeader className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <div
-            className="size-14 aspect-square rounded-xl flex items-center justify-center text-white"
+            className="size-14 aspect-square rounded-xl flex items-center justify-center text-white transition-transform duration-300 group-hover:scale-110"
             style={{ backgroundColor: goal.color }}
           >
             <Icon className="size-7" />
@@ -49,10 +58,17 @@ export function GoalCard({ goal, onClick, onEdit, showProgressPercentage }: Goal
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleEditClick} className="size-9">
-          <Edit2 />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleEditClick}
+          className={`size-9 transition-all duration-300 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2'}`}
+        >
+          <Edit2 className="size-4" />
         </Button>
       </CardHeader>
+
       <CardContent className="mt-auto">
         <div className="space-y-1 pb-1 border-b text-sm">
           {showProgressPercentage && (

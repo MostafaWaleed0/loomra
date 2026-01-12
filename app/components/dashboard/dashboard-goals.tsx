@@ -1,12 +1,20 @@
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateUtils } from '@/lib/core/date-utils';
 import { useLocalState } from '@/lib/hooks/use-local-state';
-import type { GoalWithStats } from '@/lib/types';
+import { AppSettings } from '@/lib/tauri-api';
+import type { GoalWithStats, UseGoalsReturn } from '@/lib/types';
 import { Target } from 'lucide-react';
 import { GoalListItem } from '../goals/goal-list-item';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
-export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
+type DashboardGoalsProps = {
+  goals: GoalWithStats[];
+  setActiveView: (view: string) => void;
+  setSelectedGoal: UseGoalsReturn['setSelectedGoal'];
+  settings: AppSettings['goals'];
+};
+
+export function DashboardGoals({ goals, setActiveView, setSelectedGoal, settings }: DashboardGoalsProps) {
   const [selectedPeriod, setSelectedPeriod] = useLocalState('goal-selected-period', '3months');
 
   const filterGoalsByPeriod = (goals: GoalWithStats[]) => {
@@ -36,6 +44,11 @@ export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
       }
     });
   };
+
+  function handleGoalSelect(goal: GoalWithStats) {
+    setActiveView('goals');
+    setSelectedGoal(goal);
+  }
 
   const activeGoals = goals.filter((g) => g.status === 'active');
   const completedGoals = goals.filter((g) => g.status === 'completed');
@@ -80,7 +93,14 @@ export function DashboardGoals({ goals }: { goals: GoalWithStats[] }) {
             </p>
           </div>
         ) : filteredGoals.length > 0 ? (
-          filteredGoals.map((goal) => <GoalListItem key={goal.id} goal={goal} />)
+          filteredGoals.map((goal) => (
+            <GoalListItem
+              key={goal.id}
+              goal={goal}
+              showProgressPercentage={settings.showProgressPercentage}
+              onClick={() => handleGoalSelect(goal)}
+            />
+          ))
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="size-12 text-primary mb-4" />

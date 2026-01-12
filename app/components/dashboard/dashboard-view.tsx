@@ -1,4 +1,5 @@
 import { useUserData } from '@/lib/hooks/use-user-data';
+import { AppSettings } from '@/lib/tauri-api';
 import type {
   GoalStats,
   GoalWithStats,
@@ -32,6 +33,10 @@ interface DashboardViewProps {
   onEditTask: UseTasksReturn['handleEditTask'];
   onDeleteTask: UseTasksReturn['handleDeleteTask'];
   getGoalByTaskId: UseGoalsReturn['getGoalByTaskId'];
+  activeView: string;
+  setActiveView: (view: string) => void;
+  setSelectedGoal: UseGoalsReturn['setSelectedGoal'];
+  settings: AppSettings;
 }
 
 export function DashboardView({
@@ -47,7 +52,10 @@ export function DashboardView({
   onCreateTask,
   onToggleTask,
   onEditTask,
-  onDeleteTask
+  onDeleteTask,
+  setActiveView,
+  setSelectedGoal,
+  settings
 }: DashboardViewProps) {
   const [timeOfDay, setTimeOfDay] = useState('morning');
 
@@ -131,7 +139,7 @@ export function DashboardView({
             <div className="mt-4 pt-4 border-t">
               <div className="flex items-center justify-between text-sm">
                 <span>Overdue: {stats.overdueTasks}</span>
-                <span className="font-semibold">{Math.round((stats.completedTaskCount / stats.totalTasks) * 100)}%</span>
+                <span className="font-semibold">{Math.round((stats.completedTaskCount / stats.totalTasks || 0) * 100)}%</span>
               </div>
             </div>
           </CardContent>
@@ -163,7 +171,12 @@ export function DashboardView({
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
         <div className="col-span-3 space-y-6">
-          <DashboardGoals goals={goals} />
+          <DashboardGoals
+            goals={goals}
+            setActiveView={setActiveView}
+            setSelectedGoal={setSelectedGoal}
+            settings={settings.goals}
+          />
           <DashboardTasks
             tasks={tasks}
             onCreateTask={onCreateTask}

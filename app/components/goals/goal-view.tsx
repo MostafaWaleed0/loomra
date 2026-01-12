@@ -1,31 +1,26 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useGoalForm } from '@/lib/hooks/use-goal-form';
+import { useLocalState } from '@/lib/hooks/use-local-state';
 import { AppSettings } from '@/lib/tauri-api';
-import type {
-  DeleteStrategy,
-  Goal,
-  GoalStats,
-  GoalWithStats,
-  Habit,
-  TaskWithStats,
-  UseGoalsReturn,
-  UseTasksReturn
-} from '@/lib/types';
+import type { DeleteStrategy, Goal, GoalWithStats, Habit, TaskWithStats, UseGoalsReturn, UseTasksReturn } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Award, CheckCircle2, Plus, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Plus, Target } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { SectionHeader } from '../layout/section-header';
 import { TaskPanel } from '../tasks/task-panel';
 import { EmptyState } from './empty-state';
-import { FilterBar } from './filter-bar';
 import { GoalCard } from './goal-card';
 import { GoalDeleteDialog } from './goal-delete-dialog';
 import { GoalDetailHeader } from './goal-detail-header';
 import { GoalEditorDrawer } from './goal-drawer';
+import { GoalFilterBar, SortConfig, sortGoals } from './goal-filter-bar';
+import { GoalListItem } from './goal-list-item';
 import { GoalMetadataGrid } from './goal-metadata-grid';
 import { GoalNotesCard } from './goal-notes-card';
 import { GoalProgressSection } from './goal-progress-section';
+import { GoalStatsCard } from './goal-stats-card';
 import { HabitsPanel } from './habits-panel';
 
 const pageVariants = {
@@ -33,64 +28,6 @@ const pageVariants = {
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -20 }
 };
-
-/* ---------------------------------------------------------------------------
-   StatsCard
---------------------------------------------------------------------------- */
-interface StatsCardProps {
-  stats: GoalStats;
-}
-
-function StatsCard({ stats }: StatsCardProps) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2">
-            <Award className="size-4 text-blue-500" />
-            <div>
-              <p className="text-2xl font-bold">{stats.totalGoals}</p>
-              <p className="text-xs text-muted-foreground">Total Goals</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2">
-            <Target className="size-4 text-green-500" />
-            <div>
-              <p className="text-2xl font-bold">{stats.activeGoals}</p>
-              <p className="text-xs text-muted-foreground">Active</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="size-4 text-emerald-500" />
-            <div>
-              <p className="text-2xl font-bold">{stats.completedGoals}</p>
-              <p className="text-xs text-muted-foreground">Completed</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="size-4 text-purple-500" />
-            <div>
-              <p className="text-2xl font-bold">{stats.avgProgress}%</p>
-              <p className="text-xs text-muted-foreground">Avg Progress</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 /* ---------------------------------------------------------------------------
    GoalDetailView
@@ -306,9 +243,11 @@ export function GoalView({
 }: GoalViewProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useLocalState<string>('goals.status.filter', 'all');
+  const [priorityFilter, setPriorityFilter] = useLocalState<string>('goals.priority.filter', 'all');
   const [shouldAnimate, setShouldAnimate] = useState(false);
+  const [goalView, setGoalView] = useLocalState('goals.goal.view', 'grid');
+  const [sortConfig, setSortConfig] = useLocalState<SortConfig>('goals.sort.config', { field: 'priority', direction: 'desc' });
   const { resetForm } = useGoalForm(null);
 
   const filteredGoals = useMemo(() => {
@@ -320,6 +259,10 @@ export function GoalView({
       overdue: statusFilter === 'overdue' || undefined
     });
   }, [getFilteredGoals, searchQuery, statusFilter, priorityFilter]);
+
+  const sortedGoals = useMemo(() => {
+    return sortGoals(filteredGoals, sortConfig);
+  }, [filteredGoals, sortConfig]);
 
   function handleStatusChange(goalId: string, action: 'completed' | 'active' | 'paused') {
     const actions = {
@@ -387,20 +330,26 @@ export function GoalView({
         buttonLabel="New Goal"
       />
 
-      <StatsCard stats={stats} />
+      <GoalStatsCard stats={stats} />
 
       {goals.length > 0 && (
-        <FilterBar
+        <GoalFilterBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
           priorityFilter={priorityFilter}
           onPriorityChange={setPriorityFilter}
+          sortConfig={sortConfig}
+          onSortChange={setSortConfig}
+          goalView={goalView}
+          onGoalViewChange={setGoalView}
+          totalCount={goals.length}
+          filteredCount={sortedGoals.length}
         />
       )}
 
-      {filteredGoals.length === 0 ? (
+      {sortedGoals.length === 0 ? (
         <EmptyState
           icon={Target}
           title={goals.length === 0 ? 'No goals yet' : 'No goals match your filters'}
@@ -412,19 +361,32 @@ export function GoalView({
           action={goals.length === 0 ? { label: 'Create Your First Goal', onClick: handleCreateNew, icon: Plus } : undefined}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredGoals.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              showProgressPercentage={settings.showProgressPercentage}
-              onClick={() => handleGoalSelect(goal)}
-              onEdit={() => {
-                setSelectedGoal(goal);
-                setIsEditorOpen(true);
-              }}
-            />
-          ))}
+        <div className={cn('gap-6', goalView === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 ' : 'flex flex-col')}>
+          {sortedGoals.map((goal) =>
+            goalView === 'grid' ? (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                showProgressPercentage={settings.showProgressPercentage}
+                onClick={() => handleGoalSelect(goal)}
+                onEdit={() => {
+                  setSelectedGoal(goal);
+                  setIsEditorOpen(true);
+                }}
+              />
+            ) : (
+              <GoalListItem
+                key={goal.id}
+                goal={goal}
+                showProgressPercentage={settings.showProgressPercentage}
+                onClick={() => handleGoalSelect(goal)}
+                onEdit={() => {
+                  setSelectedGoal(goal);
+                  setIsEditorOpen(true);
+                }}
+              />
+            )
+          )}
         </div>
       )}
     </motion.div>
